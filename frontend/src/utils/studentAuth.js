@@ -1,3 +1,5 @@
+import { generateAvatarByGender, normalizeGender } from './avatar';
+
 const STUDENT_ID_PREFIX = 'CMS';
 const STUDENT_ID_BASE = 100000;
 
@@ -74,11 +76,15 @@ export const normalizeStudentIds = (items) => {
 
 export const normalizeStudentAccount = (student, seedValue = 1) => {
   const dateOfBirth = normalizeDateOfBirth(student?.dateOfBirth, seedValue);
+  const gender = normalizeGender(student?.gender, seedValue % 2 === 0 ? 'male' : 'female');
+  const avatarSeed = student?.email || student?.name || student?.studentId || `student-${seedValue}`;
   return {
     ...student,
     section: student?.section || 'A',
     shift: student?.shift || 'Morning',
+    gender,
     dateOfBirth,
     email: student?.email || makeStudentEmail(student?.name, student?.class),
+    avatar: student?.avatar || generateAvatarByGender(avatarSeed, gender),
   };
 };

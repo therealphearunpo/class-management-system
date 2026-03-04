@@ -1,4 +1,5 @@
 import { subjectOptions } from './students';
+import { generateAvatarByGender, normalizeGender } from '../utils/avatar';
 
 export const LOCAL_TEACHERS_KEY = 'teachers_local_v1';
 
@@ -41,21 +42,23 @@ const fallbackSubjects = subjectOptions
   .filter((item) => item.value)
   .map((item) => item.label);
 
-const avatarFor = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=teacher-${seed}`;
+const avatarFor = (seed, gender) => generateAvatarByGender(`teacher-${seed}`, gender);
 
 export const teachersData = teacherNames.map((name, index) => {
   const id = `teacher-${index + 1}`;
   const department = departments[index % departments.length];
   const departmentSubjects = DEPARTMENT_SUBJECTS[department] || fallbackSubjects;
   const subject = departmentSubjects[index % departmentSubjects.length];
+  const gender = index % 2 === 0 ? 'male' : 'female';
   return {
     id,
     employeeId: `T${String(index + 1).padStart(4, '0')}`,
     name,
+    gender,
     class: department,
     subject,
     shift: 'Staff',
-    avatar: avatarFor(id),
+    avatar: avatarFor(id, gender),
   };
 });
 
@@ -79,14 +82,16 @@ export function normalizeTeacherItem(item, index = 0) {
   const subject = subjectPool.includes(item?.subject) ? item.subject : subjectPool[0];
   const baseId = item?.id || `teacher-${toSlug(name) || index + 1}`;
   const employeeId = String(item?.employeeId || `T${String(index + 1).padStart(4, '0')}`);
+  const gender = normalizeGender(item?.gender, index % 2 === 0 ? 'male' : 'female');
   return {
     id: baseId,
     employeeId,
     name,
+    gender,
     class: department,
     subject,
     shift: 'Staff',
-    avatar: item?.avatar || avatarFor(baseId),
+    avatar: item?.avatar || avatarFor(baseId, gender),
   };
 }
 

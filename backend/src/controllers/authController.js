@@ -12,7 +12,7 @@ async function login(req, res) {
     }
 
     const [rows] = await pool.query(
-      'SELECT id, email, password_hash, role, full_name FROM users WHERE email = ? LIMIT 1',
+      'SELECT id, email, password_hash, role, full_name, gender FROM users WHERE email = ? LIMIT 1',
       [email]
     );
 
@@ -43,6 +43,7 @@ async function login(req, res) {
         email: user.email,
         role: user.role,
         name: user.full_name,
+        gender: user.gender || 'male',
       },
     });
   } catch (error) {

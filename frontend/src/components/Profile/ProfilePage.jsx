@@ -4,6 +4,7 @@ import { HiOutlineAcademicCap, HiOutlineCalendar, HiOutlineIdentification, HiOut
 
 import { ACCOUNT_ROLES, ROLE_CAPABILITIES, ROLE_LABELS, normalizeRole } from '../../constants/roles';
 import { useAuth } from '../../context/AuthContext';
+import { generateAvatarByGender, normalizeGender } from '../../utils/avatar';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
 
@@ -49,8 +50,9 @@ export default function ProfilePage() {
 
   const textValue = (field, fallback = '') => String(valueFor(field, fallback) || '');
   const avatar = textValue('avatar').trim();
+  const gender = normalizeGender(valueFor('gender'), 'male');
   const profileSeed = valueFor('email') || valueFor('name') || 'user';
-  const previewAvatar = avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileSeed}`;
+  const previewAvatar = avatar || generateAvatarByGender(profileSeed, gender);
   const currentRole = normalizeRole(valueFor('role') || user?.role);
   const roleCapabilities = ROLE_CAPABILITIES[currentRole] || [];
   const isStudent = currentRole === ACCOUNT_ROLES.STUDENT;
@@ -58,6 +60,7 @@ export default function ProfilePage() {
   const profileCards = [
     { icon: HiOutlineMail, label: 'Email', value: textValue('email') },
     { icon: HiOutlinePhone, label: 'Phone', value: textValue('phone') },
+    { icon: HiOutlineUser, label: 'Gender', value: gender === 'female' ? 'Female' : 'Male' },
     { icon: HiOutlineUser, label: 'Role', value: ROLE_LABELS[currentRole] },
     ...(isStudent
       ? [
@@ -109,6 +112,7 @@ export default function ProfilePage() {
         email: textValue('email').trim(),
         role: normalizeRole(valueFor('role')),
         phone: textValue('phone').trim(),
+        gender,
         avatar: textValue('avatar').trim(),
         dateOfBirth: textValue('dateOfBirth').trim(),
       });
@@ -251,6 +255,21 @@ export default function ProfilePage() {
                 <option value={ACCOUNT_ROLES.TEACHER}>{ROLE_LABELS[ACCOUNT_ROLES.TEACHER]}</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="profile-gender" className="block text-sm font-medium text-gray-700 mb-1">
+              Gender
+            </label>
+            <select
+              id="profile-gender"
+              value={gender}
+              onChange={(e) => onChange('gender', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
           </div>
 
           {isStudent && (

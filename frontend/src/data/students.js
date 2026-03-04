@@ -1,3 +1,5 @@
+import { generateAvatarByGender } from '../utils/avatar';
+
 export const gradeLevels = [7, 8, 9, 10, 11, 12];
 const classSections = ['A', 'B', 'C', 'D', 'E', 'F'];
 const studentsPerShift = 30;
@@ -14,7 +16,6 @@ const lastNames = [
   'Sovann', 'Samnang', 'Makara', 'Kunthea', 'Davin', 'Socheata', 'Reasmey', 'Channary', 'Sopheak', 'Virak',
 ];
 
-const generateAvatar = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
 const classCodes = gradeLevels.flatMap((grade) =>
   classSections.map((section) => `${grade}${section}`)
 );
@@ -38,11 +39,13 @@ export const studentsData = classCodes.flatMap((classCode) => {
       const lastName = lastNames[Math.floor(serial / firstNames.length) % lastNames.length];
       const name = `${firstName} ${lastName}`;
       const id = serial + 1;
+      const gender = serial % 2 === 0 ? 'male' : 'female';
 
       return {
         id,
         name,
-        avatar: generateAvatar(`${classCode}-${shift}-${id}`),
+        gender,
+        avatar: generateAvatarByGender(`${classCode}-${shift}-${id}`, gender),
         class: classCode,
         shift,
       };

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect } 
 
 import { format } from 'date-fns';
 
+import { useAuth } from './AuthContext';
+import { ACCOUNT_ROLES, normalizeRole } from '../constants/roles';
 import { attendanceAPI } from '../services/api';
 
 const AttendanceContext = createContext(null);
@@ -73,6 +75,16 @@ function attendanceReducer(state, action) {
         },
       };
     }
+    case 'SET_DAY_RECORDS': {
+      const dateKey = format(state.currentDate, 'yyyy-MM-dd');
+      return {
+        ...state,
+        records: {
+          ...state.records,
+          [dateKey]: action.payload || {},
+        },
+      };
+    }
     case 'SET_SUBMITTING':
       return { ...state, isSubmitting: action.payload };
     case 'SET_NOTIFICATION':
@@ -82,6 +94,10 @@ function attendanceReducer(state, action) {
     default:
       return state;
   }
+}
+
+function getRecordTypeFromRole(role) {
+  return role === ACCOUNT_ROLES.ADMIN ? 'teacher' : 'student';
 }
 
 function buildAttendanceExcelBlob({
@@ -160,6 +176,9 @@ function toShortToken(value, maxLen = 5) {
 }
 
 export function AttendanceProvider({ children }) {
+  const { user } = useAuth();
+  const role = normalizeRole(user?.role);
+  const recordType = getRecordTypeFromRole(role);
   const [state, dispatch] = useReducer(
     attendanceReducer,
     initialState,
@@ -194,6 +213,29 @@ export function AttendanceProvider({ children }) {
     dispatch({ type: 'SET_VIEW_MODE', payload: mode });
   }, []);
 
+  const loadDayRecords = useCallback(async () => {
+    const dateKey = format(state.currentDate, 'yyyy-MM-dd');
+    try {
+      const response = await attendanceAPI.getToday({
+        date: dateKey,
+        recordType,
+        className: state.selectedClass || undefined,
+        shiftName: state.selectedShift || undefined,
+        subjectKey: state.selectedSubject || undefined,
+      });
+      const records = response?.data?.records && typeof response.data.records === 'object'
+        ? response.data.records
+        : {};
+      dispatch({ type: 'SET_DAY_RECORDS', payload: records });
+    } catch (_error) {
+      // Keep current in-memory marks if API read fails.
+    }
+  }, [recordType, state.currentDate, state.selectedClass, state.selectedShift, state.selectedSubject]);
+
+  useEffect(() => {
+    loadDayRecords();
+  }, [loadDayRecords]);
+
   const submitAttendance = useCallback(async (studentIds = [], students = []) => {
     dispatch({ type: 'SET_SUBMITTING', payload: true });
     try {
@@ -208,6 +250,22 @@ export function AttendanceProvider({ children }) {
       if (markedCount === 0) {
         throw new Error('Please mark at least one student before submitting.');
       }
+
+      const payload = scopedIds
+        .map((id) => ({
+          targetId: String(id),
+          status: dateRecords[id],
+        }))
+        .filter((item) => item.status);
+
+      await attendanceAPI.bulkMark({
+        date: dateKey,
+        recordType,
+        className: state.selectedClass || null,
+        shiftName: state.selectedShift || null,
+        subjectKey: state.selectedSubject || null,
+        records: payload,
+      });
 
       let excelSent = false;
       let telegramFailureMessage = '';
@@ -264,6 +322,7 @@ export function AttendanceProvider({ children }) {
       setTimeout(() => dispatch({ type: 'CLEAR_NOTIFICATION' }), 3000);
     }
   }, [
+    recordType,
     state.currentDate,
     state.records,
     state.selectedClass,

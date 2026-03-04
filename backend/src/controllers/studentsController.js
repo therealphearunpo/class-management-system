@@ -36,15 +36,16 @@ async function getStudentById(req, res) {
 async function createStudent(req, res) {
   try {
     const { student_code, full_name, class_name, section, gender, dob } = req.body;
-    if (!student_code || !full_name || !class_name || !section) {
+    const normalizedGender = String(gender || '').trim().toLowerCase();
+    if (!student_code || !full_name || !class_name || !section || !['male', 'female'].includes(normalizedGender)) {
       return res
         .status(400)
-        .json({ message: 'student_code, full_name, class_name, section are required' });
+        .json({ message: 'student_code, full_name, class_name, section, gender are required' });
     }
 
     await pool.query(
       'INSERT INTO students (student_code, full_name, class_name, section, gender, dob) VALUES (?, ?, ?, ?, ?, ?)',
-      [student_code, full_name, class_name, section, gender || null, dob || null]
+      [student_code, full_name, class_name, section, normalizedGender, dob || null]
     );
 
     return res.status(201).json({ message: 'Student created' });

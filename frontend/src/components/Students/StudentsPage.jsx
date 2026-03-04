@@ -10,6 +10,7 @@ import {
   studentsData,
 } from '../../data/students';
 import { studentsAPI } from '../../services/api';
+import { generateAvatarByGender, normalizeGender } from '../../utils/avatar';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import DataTable from '../common/DataTable';
@@ -19,11 +20,6 @@ const LOCAL_STUDENTS_KEY = 'students_local_v2';
 const STUDENT_ID_PREFIX = 'CMS';
 const STUDENT_ID_BASE = 100000;
 const FINAL_GRADE = 12;
-
-const generateAvatar = (name) => {
-  const seed = String(name || '').replace(/\s/g, '');
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'student'}`;
-};
 
 const parseStudentIdNumber = (studentId) => {
   if (typeof studentId !== 'string') return null;
@@ -94,6 +90,7 @@ export default function StudentsPage() {
     name: '',
     class: DEFAULT_CLASS_CODE,
     shift: DEFAULT_SHIFT,
+    gender: 'male',
   });
 
   useEffect(() => {
@@ -106,14 +103,24 @@ export default function StudentsPage() {
         const base = apiStudents.length > 0 ? apiStudents : studentsData;
         const merged = [...localStudents, ...base.filter((s) => !localStudents.some((l) => l.id === s.id))];
         const normalized = normalizeStudentIds(
-          merged.map((student) => ({ ...student, shift: normalizeShift(student.shift) }))
+          merged.map((student) => ({
+            ...student,
+            gender: normalizeGender(student.gender, 'male'),
+            avatar: student.avatar || generateAvatarByGender(student.name || student.email, student.gender),
+            shift: normalizeShift(student.shift),
+          }))
         );
         saveLocalStudents(normalized);
         setStudents(normalized);
       } catch (_error) {
         const merged = [...localStudents, ...studentsData.filter((s) => !localStudents.some((l) => l.id === s.id))];
         const normalized = normalizeStudentIds(
-          merged.map((student) => ({ ...student, shift: normalizeShift(student.shift) }))
+          merged.map((student) => ({
+            ...student,
+            gender: normalizeGender(student.gender, 'male'),
+            avatar: student.avatar || generateAvatarByGender(student.name || student.email, student.gender),
+            shift: normalizeShift(student.shift),
+          }))
         );
         saveLocalStudents(normalized);
         setStudents(normalized);
@@ -209,7 +216,7 @@ export default function StudentsPage() {
       render: (value, row) => (
         <div className="flex items-center gap-3">
           <img
-            src={row.avatar || generateAvatar(value)}
+            src={row.avatar || generateAvatarByGender(value, row.gender)}
             alt={value}
             className="w-9 h-9 rounded-full object-cover border border-gray-200"
           />
@@ -248,7 +255,8 @@ export default function StudentsPage() {
       name,
       class: formData.class,
       shift: formData.shift,
-      avatar: generateAvatar(name),
+      gender: normalizeGender(formData.gender, 'male'),
+      avatar: generateAvatarByGender(name, formData.gender),
       studentId,
     };
 
@@ -275,6 +283,7 @@ export default function StudentsPage() {
         name: '',
         class: DEFAULT_CLASS_CODE,
         shift: DEFAULT_SHIFT,
+        gender: 'male',
       });
       setTimeout(() => setNotification(null), 3000);
     }
@@ -453,6 +462,20 @@ export default function StudentsPage() {
                 {classOptions.filter((opt) => opt.value).map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.value}</option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="student-gender" className="block text-sm font-medium text-gray-700 mb-1">
+                Gender
+              </label>
+              <select
+                id="student-gender"
+                value={formData.gender}
+                onChange={(e) => setFormData((prev) => ({ ...prev, gender: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="male">Male</option>
+                <option value="female">Female</option>
               </select>
             </div>
           </div>

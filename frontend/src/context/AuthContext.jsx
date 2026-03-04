@@ -3,6 +3,7 @@ import React, { createContext, useContext, useReducer, useCallback } from 'react
 import { ACCOUNT_ROLES, getRoleLabel, normalizeRole } from '../constants/roles';
 import { studentsData } from '../data/students';
 import { authAPI } from '../services/api';
+import { generateAvatarByGender, normalizeGender } from '../utils/avatar';
 import { buildStudentPassword, normalizeStudentAccount, normalizeStudentIds } from '../utils/studentAuth';
 
 const AuthContext = createContext(null);
@@ -52,9 +53,11 @@ function normalizeUser(user) {
   const normalizedEmail = String(user.email || '').trim().toLowerCase();
   const isAdminCenterMember = ADMIN_CENTER_EMAILS.includes(normalizedEmail);
   const normalizedRole = isAdminCenterMember ? ACCOUNT_ROLES.ADMIN : normalizeRole(user.role);
+  const normalizedGender = normalizeGender(user.gender, 'male');
   return {
     ...user,
     isAdminCenterMember,
+    gender: normalizedGender,
     role: normalizedRole,
     roleLabel: getRoleLabel(normalizedRole),
   };
@@ -122,7 +125,13 @@ export function AuthProvider({ children }) {
           roleLabel: getRoleLabel(normalizedRole),
           isAdminCenterMember: normalizedRole === ACCOUNT_ROLES.ADMIN,
           phone: '',
-          avatar: matchedStudent?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${normalizedEmail}`,
+          gender: normalizeGender(apiUser.gender || matchedStudent?.gender, 'male'),
+          avatar:
+            matchedStudent?.avatar ||
+            generateAvatarByGender(
+              normalizedEmail,
+              normalizeGender(apiUser.gender || matchedStudent?.gender, 'male')
+            ),
           studentId: matchedStudent?.studentId || '',
           class: matchedStudent?.class || '',
           section: matchedStudent?.section || '',
@@ -182,7 +191,10 @@ export function AuthProvider({ children }) {
           roleLabel: getRoleLabel(normalizedRole),
           isAdminCenterMember,
           phone: '',
-          avatar: matchedStudent?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${normalizedEmail}`,
+          gender: normalizeGender(matchedStudent?.gender, 'male'),
+          avatar:
+            matchedStudent?.avatar ||
+            generateAvatarByGender(normalizedEmail, normalizeGender(matchedStudent?.gender, 'male')),
           studentId: matchedStudent?.studentId || '',
           class: matchedStudent?.class || '',
           section: matchedStudent?.section || '',
@@ -246,6 +258,7 @@ export function AuthProvider({ children }) {
       nextUser.shift = state.user.shift;
       nextUser.rollNo = state.user.rollNo;
       nextUser.dateOfBirth = state.user.dateOfBirth;
+      nextUser.gender = state.user.gender;
       nextUser.isAdminCenterMember = false;
     } else if (currentRole === ACCOUNT_ROLES.ADMIN) {
       nextUser.role = ACCOUNT_ROLES.ADMIN;
@@ -257,11 +270,12 @@ export function AuthProvider({ children }) {
     }
 
     const normalizedRole = normalizeRole(nextUser.role);
+    nextUser.gender = normalizeGender(nextUser.gender, normalizeGender(state.user.gender, 'male'));
     nextUser.roleLabel = getRoleLabel(normalizedRole);
 
     if (!nextUser.avatar) {
       const avatarSeed = nextUser.email || nextUser.name || 'user';
-      nextUser.avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`;
+      nextUser.avatar = generateAvatarByGender(avatarSeed, nextUser.gender);
     }
 
     dispatch({ type: 'UPDATE_PROFILE', payload: nextUser });

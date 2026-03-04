@@ -16,9 +16,9 @@ function getDefaultApiBaseUrl() {
 }
 
 const API_BASE_URL = (process.env.REACT_APP_API_URL || getDefaultApiBaseUrl()).replace(/\/+$/, '');
-const TELEGRAM_REPORT_URL = `${API_BASE_URL}/attendance/telegram-report`;
-const TELEGRAM_REPORT_PROXY_URL = '/api/attendance/telegram-report';
-const TELEGRAM_REPORT_RENDER_FALLBACK_URL = `${RENDER_BACKEND_API_FALLBACK}/attendance/telegram-report`;
+const TELEGRAM_REPORT_URL = `${API_BASE_URL}/telegram/attendance/telegram-report`;
+const TELEGRAM_REPORT_PROXY_URL = '/api/telegram/attendance/telegram-report';
+const TELEGRAM_REPORT_RENDER_FALLBACK_URL = `${RENDER_BACKEND_API_FALLBACK}/telegram/attendance/telegram-report`;
 
 function buildTelegramReportCandidates() {
   const candidates = [];
@@ -194,6 +194,11 @@ export const marksheetsAPI = {
   update: (id, data) => api.put(`/marksheets/${id}`, data),
   delete: (id) => api.delete(`/marksheets/${id}`),
   download: (id) => api.get(`/marksheets/${id}/download`, { responseType: 'blob' }),
+};
+
+export const messagesAPI = {
+  getAll: (params) => api.get('/messages', { params }),
+  create: (data) => api.post('/messages', data),
 };
 
 export const certificatesAPI = {
