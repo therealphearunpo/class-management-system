@@ -43,6 +43,7 @@ export const studentsData = classCodes.flatMap((classCode) => {
 
       return {
         id,
+        rollNo: idx + 1,
         name,
         gender,
         avatar: generateAvatarByGender(`${classCode}-${shift}-${id}`, gender),

@@ -175,6 +175,16 @@ function toShortToken(value, maxLen = 5) {
   return (normalized || 'all').slice(0, maxLen);
 }
 
+function isNetworkFailure(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '').toUpperCase();
+  return (
+    code === 'ERR_NETWORK' ||
+    message.includes('network error') ||
+    message.includes('failed to fetch')
+  );
+}
+
 export function AttendanceProvider({ children }) {
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
@@ -258,18 +268,27 @@ export function AttendanceProvider({ children }) {
         }))
         .filter((item) => item.status);
 
-      await attendanceAPI.bulkMark({
-        date: dateKey,
-        recordType,
-        className: state.selectedClass || null,
-        shiftName: state.selectedShift || null,
-        subjectKey: state.selectedSubject || null,
-        records: payload,
-      });
+      let savedToServer = true;
+      try {
+        await attendanceAPI.bulkMark({
+          date: dateKey,
+          recordType,
+          className: state.selectedClass || null,
+          shiftName: state.selectedShift || null,
+          subjectKey: state.selectedSubject || null,
+          records: payload,
+        });
+      } catch (apiError) {
+        if (isNetworkFailure(apiError)) {
+          savedToServer = false;
+        } else {
+          throw apiError;
+        }
+      }
 
       let excelSent = false;
       let telegramFailureMessage = '';
-      if (scopedStudents.length > 0) {
+      if (savedToServer && scopedStudents.length > 0) {
         const excelBlob = buildAttendanceExcelBlob({
           currentDate: state.currentDate,
           selectedClass: state.selectedClass,
@@ -306,11 +325,17 @@ export function AttendanceProvider({ children }) {
         }
       }
 
-      dispatch({ type: 'SET_NOTIFICATION', payload: { 
-        type: 'success', 
-        message: excelSent
-          ? `Attendance submitted successfully! (${markedCount} marked). Excel sent to Admin Center Telegram.`
-          : `Attendance submitted successfully! (${markedCount} marked). Telegram send failed: ${telegramFailureMessage}.`
+      const successMessage = !savedToServer
+        ? `Attendance saved locally (${markedCount} marked). Backend is unreachable, so sync is pending.`
+        : (
+          excelSent
+            ? `Attendance submitted successfully! (${markedCount} marked). Excel sent to Admin Center Telegram.`
+            : `Attendance submitted successfully! (${markedCount} marked). Telegram send failed: ${telegramFailureMessage}.`
+        );
+
+      dispatch({ type: 'SET_NOTIFICATION', payload: {
+        type: 'success',
+        message: successMessage,
       }});
     } catch (error) {
       dispatch({ type: 'SET_NOTIFICATION', payload: { 
