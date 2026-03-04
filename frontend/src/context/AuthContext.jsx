@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback } from 'react
 
 import { ACCOUNT_ROLES, getRoleLabel, normalizeRole } from '../constants/roles';
 import { studentsData } from '../data/students';
+import { authAPI } from '../services/api';
 import { buildStudentPassword, normalizeStudentAccount, normalizeStudentIds } from '../utils/studentAuth';
 
 const AuthContext = createContext(null);
@@ -9,6 +10,7 @@ const ADMIN_CENTER_EMAILS = [
   'nim.cheyseth.2824@rupp.edu.kh',
   'thet.englang.2824@rupp.edu.kh',
   'po.phearun.2824@rupp.edu.kh',
+  'admin.center@school.local',
 ];
 const ADMIN_CENTER_PASSWORD = 'Admin1234';
 const LOCAL_STUDENTS_KEY = 'students_local_v2';
@@ -47,9 +49,12 @@ function authReducer(state, action) {
 
 function normalizeUser(user) {
   if (!user) return user;
-  const normalizedRole = normalizeRole(user.role);
+  const normalizedEmail = String(user.email || '').trim().toLowerCase();
+  const isAdminCenterMember = ADMIN_CENTER_EMAILS.includes(normalizedEmail);
+  const normalizedRole = isAdminCenterMember ? ACCOUNT_ROLES.ADMIN : normalizeRole(user.role);
   return {
     ...user,
+    isAdminCenterMember,
     role: normalizedRole,
     roleLabel: getRoleLabel(normalizedRole),
   };
@@ -92,9 +97,47 @@ export function AuthProvider({ children }) {
     dispatch({ type: 'LOGIN_START' });
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (email && password) {
-        const normalizedEmail = String(email).trim().toLowerCase();
+
+      if (!email || !password) {
+        throw new Error('Invalid credentials');
+      }
+
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const studentAccounts = getStudentAccounts();
+      const matchedStudent = studentAccounts.find(
+        (student) => String(student.email || '').toLowerCase() === normalizedEmail
+      );
+
+      try {
+        const response = await authAPI.login({ email: normalizedEmail, password });
+        const apiUser = response?.data?.user || {};
+        const token = response?.data?.token;
+        const normalizedRole = normalizeRole(apiUser.role);
+
+        const user = {
+          id: apiUser.id || matchedStudent?.id || 1,
+          name: apiUser.name || matchedStudent?.name || 'User',
+          email: apiUser.email || normalizedEmail,
+          role: normalizedRole,
+          roleLabel: getRoleLabel(normalizedRole),
+          isAdminCenterMember: normalizedRole === ACCOUNT_ROLES.ADMIN,
+          phone: '',
+          avatar: matchedStudent?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${normalizedEmail}`,
+          studentId: matchedStudent?.studentId || '',
+          class: matchedStudent?.class || '',
+          section: matchedStudent?.section || '',
+          shift: matchedStudent?.shift || '',
+          rollNo: matchedStudent?.rollNo ?? '',
+          dateOfBirth: matchedStudent?.dateOfBirth || '',
+        };
+
+        dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+        localStorage.setItem('auth_user', JSON.stringify(user));
+        if (token) {
+          localStorage.setItem('auth_token', token);
+        }
+        return { success: true, role: normalizedRole };
+      } catch (_apiError) {
         const username = normalizedEmail.split('@')[0];
         const formattedName = username
           .split(/[._-]/)
@@ -102,9 +145,6 @@ export function AuthProvider({ children }) {
           .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
           .join(' ');
         const isAdminCenterMember = ADMIN_CENTER_EMAILS.includes(normalizedEmail);
-        let matchedStudent = null;
-        const studentAccounts = getStudentAccounts();
-        matchedStudent = studentAccounts.find((student) => String(student.email || '').toLowerCase() === normalizedEmail);
 
         const inferredRole = isAdminCenterMember
           ? ACCOUNT_ROLES.ADMIN
@@ -154,8 +194,6 @@ export function AuthProvider({ children }) {
         localStorage.setItem('auth_user', JSON.stringify(user));
         localStorage.setItem('auth_token', 'mock-jwt-token-' + Date.now());
         return { success: true, role: normalizedRole };
-      } else {
-        throw new Error('Invalid credentials');
       }
     } catch (error) {
       dispatch({ type: 'LOGIN_FAILURE', payload: error.message });
