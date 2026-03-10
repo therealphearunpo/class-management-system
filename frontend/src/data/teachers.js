@@ -34,7 +34,7 @@ export const DEPARTMENT_SUBJECTS = {
   'Academic Affairs': ['Life Skills and Career Orientation', 'Digital Literacy / ICT'],
   'Science Department': ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Earth & Environmental Science'],
   'Social Studies Department': ['History', 'Geography', 'Social Studies', 'Civics and Morality'],
-  'Language Department': ['English', 'French'],
+  'Language Department': ['Khmer Language & Literature', 'English', 'French'],
   'ICT Department': ['Digital Literacy / ICT', 'Life Skills and Career Orientation'],
   'Physical Education Department': ['Physical Education & Sports'],
 };
