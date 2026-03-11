@@ -1,15 +1,15 @@
 USE class_management;
 
 INSERT INTO users (email, password_hash, role, full_name, gender) VALUES
-('admin.center@school.local', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'admin', 'Admin Center', 'male'),
-('nim.cheyseth.2824@rupp.edu.kh', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'admin', 'Admin Center 1', 'male'),
-('thet.englang.2824@rupp.edu.kh', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'admin', 'Admin Center 2', 'female'),
-('po.phearun.2824@rupp.edu.kh', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'admin', 'Admin Center 3', 'male'),
-('teacher.math@school.local', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'teacher', 'Math Teacher', 'male'),
-('teacher.english@school.local', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'teacher', 'English Teacher', 'female'),
-('teacher.physics@school.local', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'teacher', 'Physics Teacher', 'male'),
-('admin.teacher@school.local', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'teacher', 'Admin Teacher Account', 'male'),
-('student.12a@school.local', '$2a$10$63EqioMZmW0dpFvHDRb3QeGL2yl8C9kzyGnneqm8A/lEu98jbZXSK', 'student', 'Student 12A', 'female')
+('admin.center@school.local', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'admin', 'Admin Center', 'male'),
+('nim.cheyseth.2824@rupp.edu.kh', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'admin', 'Admin Center 1', 'male'),
+('thet.englang.2824@rupp.edu.kh', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'admin', 'Admin Center 2', 'female'),
+('po.phearun.2824@rupp.edu.kh', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'admin', 'Admin Center 3', 'male'),
+('teacher.math@school.local', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'teacher', 'Math Teacher', 'male'),
+('teacher.english@school.local', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'teacher', 'English Teacher', 'female'),
+('teacher.physics@school.local', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'teacher', 'Physics Teacher', 'male'),
+('admin.teacher@school.local', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'teacher', 'Admin Teacher Account', 'male'),
+('student.12a@school.local', '$2a$10$PFvgzfsoljZfN1OY7Gny1.R6TIGEDn1Xq9xgTsTMKvSdiBNgA9Ile', 'student', 'Student 12A', 'female')
 ON DUPLICATE KEY UPDATE
   password_hash = VALUES(password_hash),
   role = VALUES(role),

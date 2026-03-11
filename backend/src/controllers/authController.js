@@ -1,11 +1,35 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+const { env } = require('../config/env');
 const pool = require('../config/db');
+
+function signToken(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    },
+    env.jwtSecret,
+    { expiresIn: env.jwtExpiresIn }
+  );
+}
+
+function toUserPayload(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    name: user.full_name,
+    gender: user.gender || 'male',
+  };
+}
 
 async function login(req, res) {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
@@ -26,25 +50,11 @@ async function login(req, res) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = signToken(user);
 
     return res.status(200).json({
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        name: user.full_name,
-        gender: user.gender || 'male',
-      },
+      user: toUserPayload(user),
     });
   } catch (error) {
     return res.status(500).json({
@@ -54,6 +64,32 @@ async function login(req, res) {
   }
 }
 
+async function me(req, res) {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, email, role, full_name, gender FROM users WHERE id = ? LIMIT 1',
+      [req.user?.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.status(200).json({ user: toUserPayload(rows[0]) });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to load profile',
+      error: error?.message || 'Unknown error',
+    });
+  }
+}
+
+function logout(_req, res) {
+  return res.status(200).json({ message: 'Logged out' });
+}
+
 module.exports = {
   login,
+  logout,
+  me,
 };

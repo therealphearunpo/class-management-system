@@ -3,6 +3,8 @@ require('dotenv').config();
 const cors = require('cors');
 const express = require('express');
 
+const { env, validateEnv } = require('./config/env');
+const pool = require('./config/db');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const authRoutes = require('./routes/authRoutes');
 const messagesRoutes = require('./routes/messagesRoutes');
@@ -11,19 +13,32 @@ const teachersRoutes = require('./routes/teachersRoutes');
 const telegramRoutes = require('./routes/telegramRoutes');
 
 const app = express();
-const port = Number(process.env.PORT || 3001);
+
+validateEnv();
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (env.corsOrigins.length === 0) return true;
+  return env.corsOrigins.includes(origin);
+}
 
 const corsOptions = {
-  origin: true,
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Origin not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '2mb' }));
+app.disable('x-powered-by');
 
 app.get('/api/health', (_req, res) => {
-  res.status(200).json({ ok: true, service: 'class-management-backend' });
+  res.status(200).json({ ok: true, service: 'class-management-backend', env: env.nodeEnv });
 });
 
 app.use('/api/auth', authRoutes);
@@ -33,6 +48,31 @@ app.use('/api/teachers', teachersRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/telegram', telegramRoutes);
 
-app.listen(port, () => {
-  console.log(`Backend listening on http://localhost:${port}`);
+app.use((req, res) => {
+  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
 });
+
+app.use((error, _req, res, _next) => {
+  if (String(error?.message || '').includes('CORS')) {
+    return res.status(403).json({ message: 'Request blocked by CORS policy' });
+  }
+
+  return res.status(500).json({
+    message: 'Internal server error',
+    error: env.nodeEnv === 'production' ? undefined : error?.message || 'Unknown error',
+  });
+});
+
+async function start() {
+  try {
+    await pool.query('SELECT 1');
+    app.listen(env.port, () => {
+      console.log(`Backend listening on http://localhost:${env.port}`);
+    });
+  } catch (error) {
+    console.error('Backend startup failed:', error?.message || error);
+    process.exit(1);
+  }
+}
+
+start();

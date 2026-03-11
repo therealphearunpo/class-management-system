@@ -1,0 +1,9 @@
+{
+  "name": "class-management-system-workspace",
+  "private": true,
+  "scripts": {
+    "start": "start cmd /k \"cd /d frontend && npm start\" && start cmd /k \"cd /d backend && npm start\"",
+    "start:frontend": "cd frontend && npm start",
+    "start:backend": "cd backend && npm start"
+  }
+}

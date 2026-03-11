@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-const RENDER_BACKEND_API_FALLBACK = 'https://backend-q148.onrender.com/api';
-
 function getDefaultApiBaseUrl() {
   if (typeof window === 'undefined') {
     return 'http://localhost:3001/api';
@@ -12,13 +10,12 @@ function getDefaultApiBaseUrl() {
     return 'http://localhost:3001/api';
   }
 
-  return RENDER_BACKEND_API_FALLBACK;
+  return `${window.location.origin}/api`;
 }
 
 const API_BASE_URL = (process.env.REACT_APP_API_URL || getDefaultApiBaseUrl()).replace(/\/+$/, '');
 const TELEGRAM_REPORT_URL = `${API_BASE_URL}/telegram/attendance/telegram-report`;
 const TELEGRAM_REPORT_PROXY_URL = '/api/telegram/attendance/telegram-report';
-const TELEGRAM_REPORT_RENDER_FALLBACK_URL = `${RENDER_BACKEND_API_FALLBACK}/telegram/attendance/telegram-report`;
 
 function buildTelegramReportCandidates() {
   const candidates = [];
@@ -34,8 +31,6 @@ function buildTelegramReportCandidates() {
 
   push(TELEGRAM_REPORT_URL);
   push(TELEGRAM_REPORT_PROXY_URL);
-  push(TELEGRAM_REPORT_RENDER_FALLBACK_URL);
-
   return candidates;
 }
 
@@ -61,29 +56,10 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest?._retry) {
-      originalRequest._retry = true;
-
-      try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) {
-          return Promise.reject(error);
-        }
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        localStorage.setItem('auth_token', response.data.token);
-        api.defaults.headers.common.Authorization = `Bearer ${response.data.token}`;
-        originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
-
-        return api(originalRequest);
-      } catch (refreshError) {
-        return Promise.reject(refreshError);
-      }
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
     }
 
     return Promise.reject(error);
@@ -94,7 +70,6 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   logout: () => api.post('/auth/logout'),
-  refresh: (token) => api.post('/auth/refresh', { refreshToken: token }),
   me: () => api.get('/auth/me'),
 };
 

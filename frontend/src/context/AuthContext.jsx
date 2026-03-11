@@ -1,10 +1,8 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useReducer } from 'react';
 
 import { ACCOUNT_ROLES, getRoleLabel, normalizeRole } from '../constants/roles';
-import { studentsData } from '../data/students';
 import { authAPI } from '../services/api';
 import { generateAvatarByGender, normalizeGender } from '../utils/avatar';
-import { buildStudentPassword, normalizeStudentAccount, normalizeStudentIds } from '../utils/studentAuth';
 
 const AuthContext = createContext(null);
 const ADMIN_CENTER_EMAILS = [
@@ -13,8 +11,6 @@ const ADMIN_CENTER_EMAILS = [
   'po.phearun.2824@rupp.edu.kh',
   'admin.center@school.local',
 ];
-const ADMIN_CENTER_PASSWORD = 'Admin1234';
-const LOCAL_STUDENTS_KEY = 'students_local_v2';
 
 const initialState = {
   user: null,
@@ -28,17 +24,17 @@ function authReducer(state, action) {
     case 'LOGIN_START':
       return { ...state, loading: true, error: null };
     case 'LOGIN_SUCCESS':
-      return { 
-        ...state, 
-        loading: false, 
-        isAuthenticated: true, 
-        user: action.payload, 
-        error: null 
+      return {
+        ...state,
+        loading: false,
+        isAuthenticated: true,
+        user: action.payload,
+        error: null,
       };
     case 'LOGIN_FAILURE':
       return { ...state, loading: false, error: action.payload };
     case 'LOGOUT':
-      return { ...state, isAuthenticated: false, user: null, loading: false };
+      return { ...state, isAuthenticated: false, user: null, loading: false, error: null };
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
     case 'UPDATE_PROFILE':
@@ -49,191 +45,93 @@ function authReducer(state, action) {
 }
 
 function normalizeUser(user) {
-  if (!user) return user;
+  if (!user) return null;
   const normalizedEmail = String(user.email || '').trim().toLowerCase();
   const isAdminCenterMember = ADMIN_CENTER_EMAILS.includes(normalizedEmail);
   const normalizedRole = isAdminCenterMember ? ACCOUNT_ROLES.ADMIN : normalizeRole(user.role);
   const normalizedGender = normalizeGender(user.gender, 'male');
+
   return {
     ...user,
+    email: normalizedEmail,
     isAdminCenterMember,
     gender: normalizedGender,
     role: normalizedRole,
     roleLabel: getRoleLabel(normalizedRole),
+    avatar:
+      user.avatar ||
+      generateAvatarByGender(normalizedEmail || user.name || 'user', normalizedGender),
   };
 }
 
-function readLocalStudents() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STUDENTS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function mergeUniqueStudents(items) {
-  const map = new Map();
-  items.forEach((item, index) => {
-    if (!item || typeof item !== 'object') return;
-    const idKey = item.id !== undefined && item.id !== null ? `id:${item.id}` : null;
-    const emailKey = item.email ? `email:${String(item.email).toLowerCase()}` : null;
-    const nameKey = `name:${String(item.name || '').toLowerCase()}-${String(item.class || '')}-${String(item.rollNo || index)}`;
-    const key = idKey || emailKey || nameKey;
-    map.set(key, item);
-  });
-  return Array.from(map.values());
-}
-
-function getStudentAccounts() {
-  const localStudents = readLocalStudents();
-  const merged = mergeUniqueStudents([...localStudents, ...studentsData]);
-  const withStudentIds = normalizeStudentIds(merged);
-  return withStudentIds.map((student, index) => normalizeStudentAccount(student, student.id ?? index + 1));
+function clearStoredAuth() {
+  localStorage.removeItem('auth_user');
+  localStorage.removeItem('auth_token');
 }
 
 export function AuthProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  const login = useCallback(async (email, password, selectedRole = null) => {
+  const login = useCallback(async (email, password) => {
     dispatch({ type: 'LOGIN_START' });
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       if (!email || !password) {
-        throw new Error('Invalid credentials');
+        throw new Error('Email and password are required');
       }
 
       const normalizedEmail = String(email).trim().toLowerCase();
-      const studentAccounts = getStudentAccounts();
-      const matchedStudent = studentAccounts.find(
-        (student) => String(student.email || '').toLowerCase() === normalizedEmail
-      );
+      const response = await authAPI.login({ email: normalizedEmail, password });
+      const token = response?.data?.token;
+      const user = normalizeUser(response?.data?.user);
 
-      try {
-        const response = await authAPI.login({ email: normalizedEmail, password });
-        const apiUser = response?.data?.user || {};
-        const token = response?.data?.token;
-        const normalizedRole = normalizeRole(apiUser.role);
-
-        const user = {
-          id: apiUser.id || matchedStudent?.id || 1,
-          name: apiUser.name || matchedStudent?.name || 'User',
-          email: apiUser.email || normalizedEmail,
-          role: normalizedRole,
-          roleLabel: getRoleLabel(normalizedRole),
-          isAdminCenterMember: normalizedRole === ACCOUNT_ROLES.ADMIN,
-          phone: '',
-          gender: normalizeGender(apiUser.gender || matchedStudent?.gender, 'male'),
-          avatar:
-            matchedStudent?.avatar ||
-            generateAvatarByGender(
-              normalizedEmail,
-              normalizeGender(apiUser.gender || matchedStudent?.gender, 'male')
-            ),
-          studentId: matchedStudent?.studentId || '',
-          class: matchedStudent?.class || '',
-          section: matchedStudent?.section || '',
-          shift: matchedStudent?.shift || '',
-          rollNo: matchedStudent?.rollNo ?? '',
-          dateOfBirth: matchedStudent?.dateOfBirth || '',
-        };
-
-        dispatch({ type: 'LOGIN_SUCCESS', payload: user });
-        localStorage.setItem('auth_user', JSON.stringify(user));
-        if (token) {
-          localStorage.setItem('auth_token', token);
-        }
-        return { success: true, role: normalizedRole };
-      } catch (_apiError) {
-        const username = normalizedEmail.split('@')[0];
-        const formattedName = username
-          .split(/[._-]/)
-          .filter(Boolean)
-          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-          .join(' ');
-        const isAdminCenterMember = ADMIN_CENTER_EMAILS.includes(normalizedEmail);
-
-        const inferredRole = isAdminCenterMember
-          ? ACCOUNT_ROLES.ADMIN
-          : (matchedStudent ? ACCOUNT_ROLES.STUDENT : ACCOUNT_ROLES.TEACHER);
-        const normalizedRole = selectedRole ? normalizeRole(selectedRole) : inferredRole;
-
-        if (normalizedRole === ACCOUNT_ROLES.ADMIN) {
-          if (!isAdminCenterMember) {
-            throw new Error('This email is not in the Admin Center list.');
-          }
-          if (password !== ADMIN_CENTER_PASSWORD) {
-            throw new Error('Invalid Admin Center password.');
-          }
-        }
-
-        if (normalizedRole === ACCOUNT_ROLES.TEACHER && isAdminCenterMember) {
-          throw new Error('This account is reserved for Admin Center. Please choose Admin Center role.');
-        }
-
-        if (normalizedRole === ACCOUNT_ROLES.STUDENT) {
-          if (!matchedStudent) {
-            throw new Error('Student email was not found. Please use the email from Student Lookup.');
-          }
-          const expectedPassword = buildStudentPassword(matchedStudent);
-          if (String(password).trim().toLowerCase() !== expectedPassword.toLowerCase()) {
-            throw new Error('Invalid student password. Use lastname + DDMMYYYY.');
-          }
-        }
-
-        const user = {
-          id: matchedStudent?.id || 1,
-          name: matchedStudent?.name || formattedName || 'User',
-          email: normalizedEmail,
-          role: normalizedRole,
-          roleLabel: getRoleLabel(normalizedRole),
-          isAdminCenterMember,
-          phone: '',
-          gender: normalizeGender(matchedStudent?.gender, 'male'),
-          avatar:
-            matchedStudent?.avatar ||
-            generateAvatarByGender(normalizedEmail, normalizeGender(matchedStudent?.gender, 'male')),
-          studentId: matchedStudent?.studentId || '',
-          class: matchedStudent?.class || '',
-          section: matchedStudent?.section || '',
-          shift: matchedStudent?.shift || '',
-          rollNo: matchedStudent?.rollNo ?? '',
-          dateOfBirth: matchedStudent?.dateOfBirth || '',
-        };
-        dispatch({ type: 'LOGIN_SUCCESS', payload: user });
-        localStorage.setItem('auth_user', JSON.stringify(user));
-        localStorage.setItem('auth_token', 'mock-jwt-token-' + Date.now());
-        return { success: true, role: normalizedRole };
+      if (!token || !user) {
+        throw new Error('Login response is missing required user data');
       }
+
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+      return { success: true, role: user.role };
     } catch (error) {
-      dispatch({ type: 'LOGIN_FAILURE', payload: error.message });
-      return { success: false, error: error.message };
+      clearStoredAuth();
+      const message = error?.response?.data?.message || error?.message || 'Login failed';
+      dispatch({ type: 'LOGIN_FAILURE', payload: message });
+      return { success: false, error: message };
     }
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('auth_token');
+  const logout = useCallback(async () => {
+    try {
+      await authAPI.logout();
+    } catch (_error) {
+      // Local logout should still complete if the API is unavailable.
+    }
+
+    clearStoredAuth();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
-  const checkAuth = useCallback(() => {
+  const checkAuth = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const storedUser = localStorage.getItem('auth_user');
       const token = localStorage.getItem('auth_token');
-      
-      if (storedUser && token) {
-        const normalizedUser = normalizeUser(JSON.parse(storedUser));
-        dispatch({ type: 'LOGIN_SUCCESS', payload: normalizedUser });
-        localStorage.setItem('auth_user', JSON.stringify(normalizedUser));
-      } else {
+      if (!token) {
         dispatch({ type: 'SET_LOADING', payload: false });
+        return;
       }
-    } catch (error) {
-      dispatch({ type: 'SET_LOADING', payload: false });
+
+      const response = await authAPI.me();
+      const user = normalizeUser(response?.data?.user);
+
+      if (!user) {
+        throw new Error('Authenticated user payload is missing');
+      }
+
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+    } catch (_error) {
+      clearStoredAuth();
+      dispatch({ type: 'LOGOUT' });
     }
   }, []);
 
@@ -246,33 +144,12 @@ export function AuthProvider({ children }) {
     const nextUser = {
       ...state.user,
       ...updates,
+      role: currentRole,
+      roleLabel: getRoleLabel(currentRole),
+      isAdminCenterMember: currentRole === ACCOUNT_ROLES.ADMIN,
     };
 
-    if (currentRole === ACCOUNT_ROLES.STUDENT) {
-      // Students cannot escalate role or alter identity-critical academic fields.
-      nextUser.role = ACCOUNT_ROLES.STUDENT;
-      nextUser.email = state.user.email;
-      nextUser.studentId = state.user.studentId;
-      nextUser.class = state.user.class;
-      nextUser.section = state.user.section;
-      nextUser.shift = state.user.shift;
-      nextUser.rollNo = state.user.rollNo;
-      nextUser.dateOfBirth = state.user.dateOfBirth;
-      nextUser.gender = state.user.gender;
-      nextUser.isAdminCenterMember = false;
-    } else if (currentRole === ACCOUNT_ROLES.ADMIN) {
-      nextUser.role = ACCOUNT_ROLES.ADMIN;
-      nextUser.isAdminCenterMember = true;
-    } else {
-      // Teachers cannot escalate role from profile editing.
-      nextUser.role = ACCOUNT_ROLES.TEACHER;
-      nextUser.isAdminCenterMember = false;
-    }
-
-    const normalizedRole = normalizeRole(nextUser.role);
     nextUser.gender = normalizeGender(nextUser.gender, normalizeGender(state.user.gender, 'male'));
-    nextUser.roleLabel = getRoleLabel(normalizedRole);
-
     if (!nextUser.avatar) {
       const avatarSeed = nextUser.email || nextUser.name || 'user';
       nextUser.avatar = generateAvatarByGender(avatarSeed, nextUser.gender);
