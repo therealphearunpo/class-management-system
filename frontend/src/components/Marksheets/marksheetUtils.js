@@ -1,4 +1,3 @@
-export const LOCAL_STUDENTS_KEY = 'students_local_v2';
 export const LOCAL_MARKSHEETS_KEY = 'marksheets_local_v2';
 export const SUBJECTS = ['math', 'science', 'english', 'history', 'computer'];
 
@@ -27,38 +26,11 @@ export function clampScore(value) {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-export function uniqueStudents(students) {
-  const seen = new Set();
-  return students.filter((student) => {
-    const key = String(student.id);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 export function normalizeStudent(student) {
   return {
     ...student,
-    shift: student.shift || 'Morning',
     section: student.section || 'A',
   };
-}
-
-function deterministicScore(student, offset) {
-  const seedString = `${student.id}-${student.class}-${student.rollNo}-${offset}`;
-  let seed = 0;
-  for (let i = 0; i < seedString.length; i += 1) {
-    seed = (seed * 31 + seedString.charCodeAt(i)) % 100000;
-  }
-  return 45 + (seed % 56);
-}
-
-export function buildFallbackScores(student) {
-  return SUBJECTS.reduce((acc, subject, index) => {
-    acc[subject] = deterministicScore(student, index + 1);
-    return acc;
-  }, {});
 }
 
 export function normalizeScoreMap(payload) {

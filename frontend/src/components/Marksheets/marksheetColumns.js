@@ -26,12 +26,6 @@ export default function createMarksheetColumns({ canEditMarks, subjects, openEdi
       sortable: true,
       render: (value) => <Badge variant="info">Section {value}</Badge>,
     },
-    {
-      header: 'Shift',
-      accessor: 'shift',
-      sortable: true,
-      render: (value) => <Badge variant="success">{value}</Badge>,
-    },
     ...subjects.map((subject) => ({
       header: subject.toUpperCase(),
       accessor: subject,
@@ -52,6 +46,7 @@ export default function createMarksheetColumns({ canEditMarks, subjects, openEdi
       accessor: 'grade',
       sortable: true,
       render: (value) => {
+        if (!value) return <span className="text-xs text-gray-400">Not entered</span>;
         const variant =
           value === 'A' ? 'success' : value === 'B' ? 'primary' : value === 'C' ? 'warning' : 'danger';
         return <Badge variant={variant}>{value}</Badge>;

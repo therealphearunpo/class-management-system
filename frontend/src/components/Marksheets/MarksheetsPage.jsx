@@ -5,7 +5,6 @@ import createMarksheetColumns from './marksheetColumns';
 import MarksheetFilters from './MarksheetFilters';
 import MarksheetStats from './MarksheetStats';
 import {
-  buildFallbackScores,
   clampScore,
   getGradeFromAverage,
   LOCAL_MARKSHEETS_KEY,
@@ -53,51 +52,71 @@ export default function MarksheetsPage() {
   const rows = useMemo(() => {
     const baseRows = filteredStudents.map((student) => {
       const studentId = String(student.id);
-      const scores = marksByStudent[studentId] || buildFallbackScores(student);
-      const total = SUBJECTS.reduce((sum, subject) => sum + clampScore(scores[subject]), 0);
-      const avg = Number((total / SUBJECTS.length).toFixed(1));
-      const grade = getGradeFromAverage(avg);
+      const scores = marksByStudent[studentId] || null;
+      const hasScores = Boolean(scores);
+      const total = hasScores
+        ? SUBJECTS.reduce((sum, subject) => sum + clampScore(scores[subject]), 0)
+        : null;
+      const avg = hasScores
+        ? Number((total / SUBJECTS.length).toFixed(1))
+        : null;
+      const grade = hasScores ? getGradeFromAverage(avg) : '';
+
+      const normalizedScores = SUBJECTS.reduce((acc, subject) => {
+        acc[subject] = hasScores ? clampScore(scores[subject]) : '';
+        return acc;
+      }, {});
+
       return {
         id: student.id,
         studentId,
         name: student.name,
         class: student.class,
         section: student.section,
-        shift: student.shift,
         rollNo: student.rollNo,
-        ...scores,
+        ...normalizedScores,
+        hasScores,
         total,
         avg,
         grade,
       };
     });
 
-    const ranked = [...baseRows].sort((a, b) => {
+    const ranked = [...baseRows]
+      .filter((row) => row.hasScores)
+      .sort((a, b) => {
       if (b.avg !== a.avg) return b.avg - a.avg;
       if (b.total !== a.total) return b.total - a.total;
       return String(a.name).localeCompare(String(b.name));
     });
 
+    const rankByStudentId = {};
     let prevKey = null;
     let currentRank = 0;
-    return ranked.map((row, index) => {
+    ranked.forEach((row, index) => {
       const key = `${row.avg}-${row.total}`;
       if (key !== prevKey) {
         currentRank = index + 1;
         prevKey = key;
       }
-      return { ...row, rank: currentRank };
+      rankByStudentId[row.studentId] = currentRank;
     });
+
+    return baseRows.map((row) => ({
+      ...row,
+      rank: row.hasScores ? rankByStudentId[row.studentId] : '',
+    }));
   }, [filteredStudents, marksByStudent]);
 
   const stats = useMemo(() => {
-    if (rows.length === 0) return { students: 0, avg: 0, passRate: 0 };
-    const avg = rows.reduce((sum, row) => sum + row.avg, 0) / rows.length;
-    const passCount = rows.filter((row) => row.avg >= 50).length;
+    const gradedRows = rows.filter((row) => row.hasScores);
+    if (gradedRows.length === 0) return { students: 0, avg: 0, passRate: 0 };
+    const avg = gradedRows.reduce((sum, row) => sum + row.avg, 0) / gradedRows.length;
+    const passCount = gradedRows.filter((row) => row.avg >= 50).length;
     return {
-      students: rows.length,
+      students: gradedRows.length,
       avg: avg.toFixed(1),
-      passRate: ((passCount / rows.length) * 100).toFixed(1),
+      passRate: ((passCount / gradedRows.length) * 100).toFixed(1),
     };
   }, [rows]);
 
@@ -172,7 +191,7 @@ export default function MarksheetsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Marksheets</h1>
-          <p className="text-sm text-gray-500 mt-1">Student performance using real project student records.</p>
+          <p className="text-sm text-gray-500 mt-1">Only real saved marks are shown. Students without marks stay blank until entered.</p>
         </div>
       </div>
 
