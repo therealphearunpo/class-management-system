@@ -4,6 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 
 import StudentCard from '../../components/Attendance/StudentCard';
 import { AttendanceProvider } from '../../context/AttendanceContext';
+import { AuthProvider } from '../../context/AuthContext';
 
 const mockStudent = {
   id: 1,
@@ -14,9 +15,11 @@ const mockStudent = {
 
 const renderWithContext = (component) => {
   return render(
-    <AttendanceProvider>
-      {component}
-    </AttendanceProvider>
+    <AuthProvider>
+      <AttendanceProvider>
+        {component}
+      </AttendanceProvider>
+    </AuthProvider>
   );
 };
 
