@@ -20,12 +20,6 @@ export default function createMarksheetColumns({ canEditMarks, subjects, openEdi
       accessor: 'class',
       sortable: true,
     },
-    {
-      header: 'Section',
-      accessor: 'section',
-      sortable: true,
-      render: (value) => <Badge variant="info">Section {value}</Badge>,
-    },
     ...subjects.map((subject) => ({
       header: subject.toUpperCase(),
       accessor: subject,

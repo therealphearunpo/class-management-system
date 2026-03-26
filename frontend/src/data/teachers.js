@@ -12,24 +12,6 @@ const departments = [
   'Physical Education Department',
 ];
 
-const teacherNames = [
-  'Sok Vannak',
-  'Chan Sreypov',
-  'Keo Piseth',
-  'Ros Sophea',
-  'Meas Dara',
-  'Lim Pich',
-  'Ouk Sreynoch',
-  'Phan Rithy',
-  'Thon Vicheka',
-  'Seng Daravy',
-  'Khuon Ratanak',
-  'Yim Sreyleak',
-  'Eam Sopheap',
-  'Ngeth Vuthy',
-  'Chea Bopha',
-];
-
 export const DEPARTMENT_SUBJECTS = {
   'Academic Affairs': ['Life Skills and Career Orientation', 'Digital Literacy / ICT'],
   'Science Department': ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Earth & Environmental Science'],
@@ -43,24 +25,7 @@ const fallbackSubjects = subjectOptions
   .map((item) => item.label);
 
 const avatarFor = (seed, gender) => generateAvatarByGender(`teacher-${seed}`, gender);
-
-export const teachersData = teacherNames.map((name, index) => {
-  const id = `teacher-${index + 1}`;
-  const department = departments[index % departments.length];
-  const departmentSubjects = DEPARTMENT_SUBJECTS[department] || fallbackSubjects;
-  const subject = departmentSubjects[index % departmentSubjects.length];
-  const gender = index % 2 === 0 ? 'male' : 'female';
-  return {
-    id,
-    employeeId: `T${String(index + 1).padStart(4, '0')}`,
-    name,
-    gender,
-    class: department,
-    subject,
-    shift: 'Staff',
-    avatar: avatarFor(id, gender),
-  };
-});
+export const teachersData = [];
 
 function toSlug(value) {
   return String(value || '')
@@ -98,12 +63,19 @@ export function normalizeTeacherItem(item, index = 0) {
 export function loadTeachers() {
   try {
     const raw = localStorage.getItem(LOCAL_TEACHERS_KEY);
-    if (!raw) return teachersData;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return teachersData;
+    if (!Array.isArray(parsed) || parsed.length === 0) return [];
+    const looksLikeLegacyDemoOnly =
+      parsed.length > 0 &&
+      parsed.every((item, index) =>
+        String(item?.id || '') === `teacher-${index + 1}` &&
+        String(item?.employeeId || '') === `T${String(index + 1).padStart(4, '0')}`
+      );
+    if (looksLikeLegacyDemoOnly) return [];
     return parsed.map((item, index) => normalizeTeacherItem(item, index));
   } catch {
-    return teachersData;
+    return [];
   }
 }
 
@@ -116,7 +88,7 @@ export function saveTeachers(items) {
 
 export const teacherDepartmentOptions = [
   { value: '', label: 'All Departments' },
-  ...Array.from(new Set(teachersData.map((item) => item.class))).map((department) => ({
+  ...departments.map((department) => ({
     value: department,
     label: department,
   })),
@@ -124,7 +96,7 @@ export const teacherDepartmentOptions = [
 
 export const teacherSubjectOptions = [
   { value: '', label: 'All Subjects' },
-  ...Array.from(new Set(teachersData.map((item) => item.subject))).map((subject) => ({
+  ...Array.from(new Set(Object.values(DEPARTMENT_SUBJECTS).flat())).map((subject) => ({
     value: subject,
     label: subject,
   })),

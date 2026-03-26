@@ -7,7 +7,6 @@ import {
   DEFAULT_CLASS_CODE,
   DEFAULT_SHIFT,
   normalizeShift,
-  studentsData,
 } from '../../data/students';
 import { studentsAPI } from '../../services/api';
 import { generateAvatarByGender, normalizeGender } from '../../utils/avatar';
@@ -17,33 +16,7 @@ import DataTable from '../common/DataTable';
 import Modal from '../common/Modal';
 
 const LOCAL_STUDENTS_KEY = 'students_local_v2';
-const STUDENT_ID_PREFIX = 'CMS';
-const STUDENT_ID_BASE = 100000;
 const FINAL_GRADE = 12;
-
-const parseStudentIdNumber = (studentId) => {
-  if (typeof studentId !== 'string') return null;
-  const match = studentId.match(/^CMS(\d+)$/);
-  return match ? Number(match[1]) : null;
-};
-
-const formatStudentId = (num) => `${STUDENT_ID_PREFIX}${String(num)}`;
-
-const normalizeStudentIds = (items) => {
-  const existingNumbers = items
-    .map((student) => parseStudentIdNumber(student.studentId))
-    .filter((n) => Number.isFinite(n));
-
-  let nextNumber = Math.max(STUDENT_ID_BASE + 1, ...existingNumbers, 0);
-
-  return items.map((student) => {
-    const currentNumber = parseStudentIdNumber(student.studentId);
-    if (currentNumber) return student;
-    const withId = { ...student, studentId: formatStudentId(nextNumber) };
-    nextNumber += 1;
-    return withId;
-  });
-};
 
 function readLocalStudents() {
   try {
@@ -100,28 +73,24 @@ export default function StudentsPage() {
       try {
         const response = await studentsAPI.getAll();
         const apiStudents = Array.isArray(response?.data) ? response.data : [];
-        const base = apiStudents.length > 0 ? apiStudents : studentsData;
-        const merged = [...localStudents, ...base.filter((s) => !localStudents.some((l) => l.id === s.id))];
-        const normalized = normalizeStudentIds(
-          merged.map((student) => ({
-            ...student,
-            gender: normalizeGender(student.gender, 'male'),
-            avatar: student.avatar || generateAvatarByGender(student.name || student.email, student.gender),
-            shift: normalizeShift(student.shift),
-          }))
-        );
+        const merged = [...localStudents, ...apiStudents.filter((s) => !localStudents.some((l) => l.id === s.id))];
+        const normalized = merged.map((student) => ({
+          ...student,
+          studentId: '',
+          gender: normalizeGender(student.gender, 'male'),
+          avatar: student.avatar || generateAvatarByGender(student.name || student.email, student.gender),
+          shift: normalizeShift(student.shift),
+        }));
         saveLocalStudents(normalized);
         setStudents(normalized);
       } catch (_error) {
-        const merged = [...localStudents, ...studentsData.filter((s) => !localStudents.some((l) => l.id === s.id))];
-        const normalized = normalizeStudentIds(
-          merged.map((student) => ({
-            ...student,
-            gender: normalizeGender(student.gender, 'male'),
-            avatar: student.avatar || generateAvatarByGender(student.name || student.email, student.gender),
-            shift: normalizeShift(student.shift),
-          }))
-        );
+        const normalized = localStudents.map((student) => ({
+          ...student,
+          studentId: '',
+          gender: normalizeGender(student.gender, 'male'),
+          avatar: student.avatar || generateAvatarByGender(student.name || student.email, student.gender),
+          shift: normalizeShift(student.shift),
+        }));
         saveLocalStudents(normalized);
         setStudents(normalized);
       } finally {
@@ -222,7 +191,7 @@ export default function StudentsPage() {
           />
           <div>
             <p className="font-medium text-gray-800">{value}</p>
-            <p className="text-xs text-gray-400">ID: {row.studentId}</p>
+            <p className="text-xs text-gray-400">{row.class || '-'}</p>
           </div>
         </div>
       ),
@@ -245,26 +214,20 @@ export default function StudentsPage() {
     const name = formData.name.trim();
     if (!name) return;
 
-    const currentNumbers = students
-      .map((s) => parseStudentIdNumber(s.studentId))
-      .filter((n) => Number.isFinite(n));
-    const nextStudentIdNumber = Math.max(STUDENT_ID_BASE, ...currentNumbers, 0) + 1;
-    const studentId = formatStudentId(nextStudentIdNumber);
-
     const payload = {
       name,
       class: formData.class,
       shift: formData.shift,
       gender: normalizeGender(formData.gender, 'male'),
       avatar: generateAvatarByGender(name, formData.gender),
-      studentId,
+      studentId: '',
     };
 
     setIsSaving(true);
     try {
       const response = await studentsAPI.create(payload);
       const created = response?.data && typeof response.data === 'object'
-        ? { ...payload, ...response.data, studentId: response.data.studentId || studentId }
+        ? { ...payload, ...response.data, studentId: '' }
         : { ...payload, id: `local-${Date.now()}` };
       setStudents((prev) => [created, ...prev]);
       const localStudents = [created, ...readLocalStudents().filter((s) => String(s.id) !== String(created.id))];
@@ -275,7 +238,7 @@ export default function StudentsPage() {
       setStudents((prev) => [created, ...prev]);
       const localStudents = [created, ...readLocalStudents().filter((s) => String(s.id) !== String(created.id))];
       saveLocalStudents(localStudents);
-      setNotification({ type: 'success', message: 'Student added locally (API unavailable).' });
+      setNotification({ type: 'success', message: 'Student added locally.' });
     } finally {
       setIsSaving(false);
       setIsCreateOpen(false);

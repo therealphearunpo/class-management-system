@@ -4,26 +4,34 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
+        brand: {
+          navy: '#0f2f63',
+          royal: '#1e4fa8',
+          sky: '#dbeafe',
+          gold: '#c89b3c',
+          cream: '#f7f3e8',
+          ink: '#10213c',
         },
-        'sidebar-bg': '#0f172a',
-        'sidebar-hover': '#1e293b',
-        'sidebar-active': '#334155',
+        primary: {
+          50: '#eef4ff',
+          100: '#dce8ff',
+          200: '#bdd1ff',
+          300: '#92b3fb',
+          400: '#5d88ef',
+          500: '#2f65d2',
+          600: '#1e4fa8',
+          700: '#173f87',
+        },
+        'sidebar-bg': '#0f2f63',
+        'sidebar-hover': '#1c4588',
+        'sidebar-active': '#2857a0',
         'attendance-present': '#10b981',
         'attendance-absent': '#ef4444',
         'attendance-late': '#f59e0b',
       },
       boxShadow: {
-        card: '0 2px 10px rgba(15, 23, 42, 0.08)',
-        sidebar: '0 12px 28px rgba(15, 23, 42, 0.35)',
+        card: '0 10px 24px rgba(16, 33, 60, 0.08)',
+        sidebar: '0 20px 40px rgba(10, 31, 70, 0.34)',
       },
       animation: {
         'spin-slow': 'spin 3s linear infinite',

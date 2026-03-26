@@ -5,8 +5,10 @@ import {
   HiOutlineCalendar,
   HiOutlineClipboardList,
   HiOutlineDocumentDownload,
+  HiOutlinePencil,
   HiOutlinePlus,
   HiOutlineSpeakerphone,
+  HiOutlineTrash,
   HiOutlineUsers,
 } from 'react-icons/hi';
 
@@ -81,6 +83,7 @@ export default function ExamsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [selectedExam, setSelectedExam] = useState(null);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
 
   useEffect(() => {
     loadExams();
@@ -216,9 +219,30 @@ export default function ExamsPage() {
   ];
 
   const handleCreateAnnouncement = (payload) => {
-    const next = writeAnnouncements([normalizeAnnouncement(payload), ...announcements]);
+    const normalized = normalizeAnnouncement(payload);
+    const next = editingAnnouncement
+      ? writeAnnouncements(
+          announcements.map((item) => (String(item.id) === String(editingAnnouncement.id) ? normalized : item))
+        )
+      : writeAnnouncements([normalized, ...announcements]);
     setAnnouncements(next);
     setShowAnnouncementModal(false);
+    setEditingAnnouncement(null);
+  };
+
+  const handleEditAnnouncement = (item) => {
+    setEditingAnnouncement(item);
+    setShowAnnouncementModal(true);
+  };
+
+  const handleDeleteAnnouncement = (announcementId) => {
+    const next = writeAnnouncements(
+      announcements.filter((item) => String(item.id) !== String(announcementId))
+    );
+    setAnnouncements(next);
+    if (editingAnnouncement && String(editingAnnouncement.id) === String(announcementId)) {
+      setEditingAnnouncement(null);
+    }
   };
 
   const openAttachment = (item) => {
@@ -285,7 +309,29 @@ export default function ExamsPage() {
                       Class: {item.classCode === 'ALL' ? 'All Classes' : item.classCode} | Date: {item.examDate || '-'} | Time: {item.examTime || '-'} | Posted by {item.postedBy}
                     </p>
                   </div>
-                  <p className="text-[11px] text-gray-400">{new Date(item.postedAt).toLocaleString()}</p>
+                  <div className="flex items-start gap-2">
+                    <p className="text-[11px] text-gray-400">{new Date(item.postedAt).toLocaleString()}</p>
+                    {isAdmin && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-primary-300 hover:text-primary-700"
+                          onClick={() => handleEditAnnouncement(item)}
+                        >
+                          <HiOutlinePencil className="w-3.5 h-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:border-red-300"
+                          onClick={() => handleDeleteAnnouncement(item.id)}
+                        >
+                          <HiOutlineTrash className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {item.message && (
                   <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">{item.message}</p>
@@ -358,10 +404,17 @@ export default function ExamsPage() {
 
       <Modal
         isOpen={showAnnouncementModal}
-        onClose={() => setShowAnnouncementModal(false)}
-        title="Post Exam Announcement"
+        onClose={() => {
+          setShowAnnouncementModal(false);
+          setEditingAnnouncement(null);
+        }}
+        title={editingAnnouncement ? 'Edit Exam Announcement' : 'Post Exam Announcement'}
       >
-        <ExamAnnouncementForm onSubmit={handleCreateAnnouncement} postedBy="Admin Center" />
+        <ExamAnnouncementForm
+          onSubmit={handleCreateAnnouncement}
+          postedBy="Admin Center"
+          initialData={editingAnnouncement}
+        />
       </Modal>
 
       <Modal
@@ -535,7 +588,7 @@ function CreateExamForm({ onSuccess }) {
   );
 }
 
-function ExamAnnouncementForm({ onSubmit, postedBy }) {
+function ExamAnnouncementForm({ onSubmit, postedBy, initialData }) {
   const [formData, setFormData] = useState({
     title: '',
     examDate: '',
@@ -544,7 +597,28 @@ function ExamAnnouncementForm({ onSubmit, postedBy }) {
     message: '',
   });
   const [attachment, setAttachment] = useState(null);
+  const [existingAttachment, setExistingAttachment] = useState({
+    attachmentName: '',
+    attachmentType: '',
+    attachmentDataUrl: '',
+  });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFormData({
+      title: initialData?.title || '',
+      examDate: initialData?.examDate || '',
+      examTime: initialData?.examTime || '',
+      classCode: initialData?.classCode || 'ALL',
+      message: initialData?.message || '',
+    });
+    setExistingAttachment({
+      attachmentName: initialData?.attachmentName || '',
+      attachmentType: initialData?.attachmentType || '',
+      attachmentDataUrl: initialData?.attachmentDataUrl || '',
+    });
+    setAttachment(null);
+  }, [initialData]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -557,13 +631,19 @@ function ExamAnnouncementForm({ onSubmit, postedBy }) {
         attachmentDataUrl = await fileToDataUrl(attachment);
         attachmentName = attachment.name;
         attachmentType = attachment.type || '';
+      } else if (existingAttachment.attachmentDataUrl) {
+        attachmentDataUrl = existingAttachment.attachmentDataUrl;
+        attachmentName = existingAttachment.attachmentName;
+        attachmentType = existingAttachment.attachmentType;
       }
 
       onSubmit({
+        id: initialData?.id,
         ...formData,
         attachmentDataUrl,
         attachmentName,
         attachmentType,
+        postedAt: initialData?.postedAt || new Date().toISOString(),
         postedBy,
       });
     } finally {
@@ -658,11 +738,29 @@ function ExamAnnouncementForm({ onSubmit, postedBy }) {
           onChange={(e) => setAttachment(e.target.files?.[0] || null)}
           className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded-md file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
         />
+        {(attachment || existingAttachment.attachmentName) && (
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            <span>{attachment ? attachment.name : existingAttachment.attachmentName}</span>
+            {initialData?.attachmentDataUrl && !attachment && (
+              <button
+                type="button"
+                className="text-red-600 hover:underline"
+                onClick={() => setExistingAttachment({
+                  attachmentName: '',
+                  attachmentType: '',
+                  attachmentDataUrl: '',
+                })}
+              >
+                Remove attachment
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end">
         <Button type="submit" loading={saving}>
-          Post Announcement
+          {initialData ? 'Save Announcement' : 'Post Announcement'}
         </Button>
       </div>
     </form>

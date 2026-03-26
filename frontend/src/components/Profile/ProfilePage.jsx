@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { HiOutlineAcademicCap, HiOutlineCalendar, HiOutlineIdentification, HiOutlineMail, HiOutlinePhone, HiOutlineUser } from 'react-icons/hi';
+import { HiOutlineAcademicCap, HiOutlineCalendar, HiOutlineMail, HiOutlinePhone, HiOutlineUser } from 'react-icons/hi';
 
 import { ACCOUNT_ROLES, ROLE_CAPABILITIES, ROLE_LABELS, normalizeRole } from '../../constants/roles';
 import { useAuth } from '../../context/AuthContext';
@@ -64,7 +64,6 @@ export default function ProfilePage() {
     { icon: HiOutlineUser, label: 'Role', value: ROLE_LABELS[currentRole] },
     ...(isStudent
       ? [
-          { icon: HiOutlineIdentification, label: 'Student ID', value: textValue('studentId') },
           { icon: HiOutlineAcademicCap, label: 'Class', value: formatClassLabel(textValue('class'), textValue('section')) },
           { icon: HiOutlineCalendar, label: 'Date of Birth', value: textValue('dateOfBirth') },
         ]
@@ -273,31 +272,17 @@ export default function ProfilePage() {
           </div>
 
           {isStudent && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="profile-dob" className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth
-                </label>
-                <input
-                  id="profile-dob"
-                  type="date"
-                  value={textValue('dateOfBirth')}
-                  onChange={(e) => onChange('dateOfBirth', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-              <div>
-                <label htmlFor="profile-student-id" className="block text-sm font-medium text-gray-700 mb-1">
-                  Student ID
-                </label>
-                <input
-                  id="profile-student-id"
-                  type="text"
-                  value={textValue('studentId')}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-600"
-                />
-              </div>
+            <div>
+              <label htmlFor="profile-dob" className="block text-sm font-medium text-gray-700 mb-1">
+                Date of Birth
+              </label>
+              <input
+                id="profile-dob"
+                type="date"
+                value={textValue('dateOfBirth')}
+                onChange={(e) => onChange('dateOfBirth', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
             </div>
           )}
 

@@ -23,31 +23,24 @@ export default function MarksheetsPage() {
   const isStudent = role === ACCOUNT_ROLES.STUDENT;
   const canEditMarks = role === ACCOUNT_ROLES.ADMIN;
   const studentClassCode = String(user?.class || '').trim();
-  const studentSectionCode = String(user?.section || '').trim();
 
   const { students, marksByStudent, setMarksByStudent, loading } = useMarksheetsData();
 
   const [notification, setNotification] = useState(null);
   const [selectedClass, setSelectedClass] = useState(studentClassCode || 'ALL');
-  const [selectedSection, setSelectedSection] = useState(studentSectionCode || 'ALL');
   const [editing, setEditing] = useState(null);
   const [formScores, setFormScores] = useState({});
   const [isSaving, setIsSaving] = useState(false);
 
   const filteredStudents = useMemo(() => {
     const lockedClass = isStudent && studentClassCode ? studentClassCode : null;
-    const lockedSection = isStudent && studentSectionCode ? studentSectionCode : null;
 
     return students.filter((student) => {
-      const classOk = lockedClass
+      return lockedClass
         ? student.class === lockedClass
         : (selectedClass === 'ALL' || student.class === selectedClass);
-      const sectionOk = lockedSection
-        ? student.section === lockedSection
-        : (selectedSection === 'ALL' || student.section === selectedSection);
-      return classOk && sectionOk;
     });
-  }, [isStudent, selectedClass, selectedSection, studentClassCode, studentSectionCode, students]);
+  }, [isStudent, selectedClass, studentClassCode, students]);
 
   const rows = useMemo(() => {
     const baseRows = filteredStudents.map((student) => {
@@ -72,7 +65,6 @@ export default function MarksheetsPage() {
         studentId,
         name: student.name,
         class: student.class,
-        section: student.section,
         rollNo: student.rollNo,
         ...normalizedScores,
         hasScores,
@@ -200,8 +192,6 @@ export default function MarksheetsPage() {
       <MarksheetFilters
         selectedClass={selectedClass}
         setSelectedClass={setSelectedClass}
-        selectedSection={selectedSection}
-        setSelectedSection={setSelectedSection}
         isStudent={isStudent}
       />
 

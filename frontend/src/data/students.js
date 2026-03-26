@@ -1,20 +1,7 @@
-import { generateAvatarByGender } from '../utils/avatar';
-
 export const gradeLevels = [7, 8, 9, 10, 11, 12];
 const classSections = ['A', 'B', 'C', 'D', 'E', 'F'];
-const studentsPerShift = 30;
 const SHIFT_BOTH = 'Both';
 const studyShifts = [SHIFT_BOTH];
-
-const firstNames = [
-  'Sok', 'Chan', 'Keo', 'Vannak', 'Seng', 'Ngeth', 'Chea', 'Ros', 'Lim', 'Ouk',
-  'Phan', 'Pheng', 'Tith', 'Chhay', 'Soun', 'Khuon', 'Meas', 'Yim', 'Thon', 'Eam',
-];
-
-const lastNames = [
-  'Mesa', 'Sreyneang', 'Rattanak', 'Boramy', 'Piseth', 'Sophea', 'Voleak', 'Saravuth', 'Heng', 'Sreyroth',
-  'Sovann', 'Samnang', 'Makara', 'Kunthea', 'Davin', 'Socheata', 'Reasmey', 'Channary', 'Sopheak', 'Virak',
-];
 
 const classCodes = gradeLevels.flatMap((grade) =>
   classSections.map((section) => `${grade}${section}`)
@@ -25,34 +12,7 @@ export const DEFAULT_SECTION = 'A';
 export const DEFAULT_SHIFT = SHIFT_BOTH;
 
 export const normalizeShift = () => SHIFT_BOTH;
-
-export const studentsData = classCodes.flatMap((classCode) => {
-  const classIndex = classCodes.indexOf(classCode);
-
-  return studyShifts.flatMap((shift, shiftIdx) =>
-    Array.from({ length: studentsPerShift }, (_, idx) => {
-      const serial =
-        classIndex * studyShifts.length * studentsPerShift +
-        shiftIdx * studentsPerShift +
-        idx;
-      const firstName = firstNames[serial % firstNames.length];
-      const lastName = lastNames[Math.floor(serial / firstNames.length) % lastNames.length];
-      const name = `${firstName} ${lastName}`;
-      const id = serial + 1;
-      const gender = serial % 2 === 0 ? 'male' : 'female';
-
-      return {
-        id,
-        rollNo: idx + 1,
-        name,
-        gender,
-        avatar: generateAvatarByGender(`${classCode}-${shift}-${id}`, gender),
-        class: classCode,
-        shift,
-      };
-    })
-  );
-});
+export const studentsData = [];
 
 export const classOptions = [
   { value: '', label: 'Select Class' },

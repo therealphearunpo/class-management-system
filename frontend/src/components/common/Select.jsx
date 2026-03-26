@@ -4,19 +4,19 @@ import { HiChevronDown } from 'react-icons/hi';
 
 export default function Select({ options, value, onChange, className = '' }) {
   return (
-    <div className="relative">
+    <div className={`relative ${className}`}>
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`filter-select appearance-none pr-10 ${className}`}
+        onChange={(event) => onChange(event.target.value)}
+        className="filter-select w-full appearance-none pr-10"
       >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
           </option>
         ))}
       </select>
-      <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+      <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
     </div>
   );
 }

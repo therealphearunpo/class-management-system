@@ -19,9 +19,7 @@ export default function EditMarksheetModal({
         <form onSubmit={handleSaveScores} className="space-y-4">
           <div>
             <p className="text-sm font-medium text-gray-700">{editing.name}</p>
-            <p className="text-xs text-gray-500">
-              {editing.class} | Section {editing.section} | {editing.shift}
-            </p>
+            <p className="text-xs text-gray-500">{editing.class}{editing.shift ? ` | ${editing.shift}` : ''}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -13,6 +13,7 @@ import {
   HiOutlineClock,
   HiOutlineUser,
   HiOutlineSearch,
+  HiOutlineCog,
 } from 'react-icons/hi';
 import { NavLink } from 'react-router-dom';
 
@@ -31,6 +32,7 @@ const menuItems = [
   { path: '/reports', icon: HiOutlineChartBar, label: 'Reports', roles: [ACCOUNT_ROLES.ADMIN] },
   { path: '/messages', icon: HiOutlineMail, label: 'SMS/Mail', roles: [ACCOUNT_ROLES.ADMIN] },
   { path: '/calendar', icon: HiOutlineClock, label: 'Calendar', roles: [ACCOUNT_ROLES.STUDENT, ACCOUNT_ROLES.TEACHER, ACCOUNT_ROLES.ADMIN] },
+  { path: '/developer-tools', icon: HiOutlineCog, label: 'Developer Tools', roles: [ACCOUNT_ROLES.ADMIN], adminCenterOnly: true },
   { path: '/profile', icon: HiOutlineUser, label: 'My Profile', roles: [ACCOUNT_ROLES.STUDENT, ACCOUNT_ROLES.TEACHER, ACCOUNT_ROLES.ADMIN] },
 ];
 
@@ -48,7 +50,9 @@ export default function Sidebar({ isOpen, onClose, onMenuVisibilityToggle }) {
   const [showSupportMenu, setShowSupportMenu] = useState(false);
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
-  const visibleMenuItems = menuItems.filter((item) => item.roles.includes(role));
+  const visibleMenuItems = menuItems.filter(
+    (item) => item.roles.includes(role) && (!item.adminCenterOnly || user?.isAdminCenterMember)
+  );
   const technicalSupportUrl = 'https://t.me/+I9OUYneewiA0NTc1';
 
   const openTelegram = () => {
@@ -86,10 +90,10 @@ export default function Sidebar({ isOpen, onClose, onMenuVisibilityToggle }) {
           <button
             type="button"
             onClick={() => setShowSupportMenu((prev) => !prev)}
-            className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center hover:bg-primary-400 transition-colors"
+            className="w-11 h-11 rounded-2xl border border-white/15 bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
             aria-label="Open support menu"
           >
-            <span className="text-white font-bold text-lg">C</span>
+            <span className="text-white font-bold text-sm tracking-wide">EDU</span>
           </button>
           {showSupportMenu && (
             <div className="absolute top-[60px] left-6 z-10 min-w-[160px] rounded-lg border border-white/20 bg-sidebar-bg shadow-lg p-1">
@@ -106,9 +110,9 @@ export default function Sidebar({ isOpen, onClose, onMenuVisibilityToggle }) {
             </div>
           )}
           <div>
-            <h1 className="text-white font-bold text-xl tracking-wide">Class</h1>
-            <p className="text-gray-400 text-[10px] uppercase tracking-wider">
-              Management
+            <h1 className="text-white font-bold text-lg tracking-wide">MOEYS Portal</h1>
+            <p className="text-blue-100/70 text-[10px] uppercase tracking-[0.24em]">
+              School Administration
             </p>
           </div>
           <button
@@ -136,6 +140,15 @@ export default function Sidebar({ isOpen, onClose, onMenuVisibilityToggle }) {
               <span>{item.label}</span>
             </NavLink>
           ))}
+
+          <div className="mx-2 mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--moeys-gold)]">
+              Education Mission
+            </p>
+            <p className="mt-2 text-sm leading-6 text-blue-50/90">
+              Support school administration, student records, and academic monitoring with a formal ministry-style workflow.
+            </p>
+          </div>
         </nav>
       </aside>
     </>

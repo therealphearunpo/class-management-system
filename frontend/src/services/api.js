@@ -174,6 +174,12 @@ export const marksheetsAPI = {
 export const messagesAPI = {
   getAll: (params) => api.get('/messages', { params }),
   create: (data) => api.post('/messages', data),
+  update: (id, data) => api.put(`/messages/${id}`, data),
+  delete: (id) => api.delete(`/messages/${id}`),
+};
+
+export const teachersAPI = {
+  getAll: (params) => api.get('/teachers', { params }),
 };
 
 export const certificatesAPI = {

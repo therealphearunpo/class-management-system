@@ -1,7 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { format, getISOWeek, getQuarter, parseISO, startOfWeek } from 'date-fns';
-import { HiOutlineDownload } from 'react-icons/hi';
+import {
+  HiOutlineChartBar,
+  HiOutlineClipboardCheck,
+  HiOutlineClock,
+  HiOutlineDownload,
+  HiOutlineDocumentReport,
+  HiOutlinePresentationChartLine,
+  HiOutlineUsers,
+} from 'react-icons/hi';
 import {
   Bar,
   BarChart,
@@ -18,7 +26,8 @@ import {
   YAxis,
 } from 'recharts';
 
-import { classOptions, studentsData, subjectOptions } from '../../data/students';
+import { classOptions, subjectOptions } from '../../data/students';
+import { assignmentsAPI, studentsAPI } from '../../services/api';
 import Button from '../common/Button';
 import Select from '../common/Select';
 
@@ -27,15 +36,7 @@ const LOCAL_STUDENTS_KEY = 'students_local_v2';
 const LOCAL_ASSIGNMENTS_KEY = 'assignments_local_v2';
 const REPORT_HISTORY_KEY = 'report_history_v1';
 
-const COLORS = ['#2563eb', '#16a34a', '#ea580c', '#7c3aed', '#dc2626', '#0ea5e9'];
-
-const defaultAssignments = [
-  { subject: 'Khmer Language & Literature', submissions: 27, total: 30, classCode: '7A' },
-  { subject: 'Mathematics', submissions: 25, total: 30, classCode: '8C' },
-  { subject: 'English', submissions: 26, total: 30, classCode: '9B' },
-  { subject: 'Physics', submissions: 23, total: 30, classCode: '11D' },
-  { subject: 'Digital Literacy / ICT', submissions: 20, total: 30, classCode: '12A' },
-];
+const COLORS = ['#1d4ed8', '#0f766e', '#c2410c', '#7c3aed', '#dc2626', '#0284c7'];
 
 function safeReadJson(key, fallback) {
   try {
@@ -52,16 +53,19 @@ function saveJson(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // Ignore quota/permission errors.
+    // Ignore quota or permission errors.
   }
 }
 
 function getMergedStudents() {
   const localStudents = safeReadJson(LOCAL_STUDENTS_KEY, []);
-  const merged = [...localStudents, ...studentsData];
   const seen = new Set();
-  return merged.filter((student) => {
-    const key = `${student.name}-${student.class}-${student.section}-${student.rollNo}`;
+  return localStudents.filter((student, index) => {
+    const key =
+      (student?.id != null && `id:${String(student.id)}`) ||
+      (student?.studentId && `studentId:${String(student.studentId)}`) ||
+      (student?.email && `email:${String(student.email).toLowerCase()}`) ||
+      `fallback:${String(student?.name || '').toLowerCase()}-${String(student?.class || '')}-${index}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -81,11 +85,6 @@ function getBucketKey(date, period) {
   return format(date, 'MMM yyyy');
 }
 
-function getBucketLabel(bucketKey, period) {
-  if (period === 'weekly') return bucketKey;
-  return bucketKey;
-}
-
 function round(num) {
   return Math.round(num * 10) / 10;
 }
@@ -100,31 +99,111 @@ function createCsv(rows) {
     .join('\n');
 }
 
+function getReportMeta(reportType) {
+  if (reportType === 'performance') {
+    return {
+      eyebrow: 'Academic Performance Analytics',
+      title: 'Subject submission performance overview',
+      description: 'Compare submission strength across subjects and identify variation in performance indicators.',
+      icon: HiOutlinePresentationChartLine,
+    };
+  }
+
+  if (reportType === 'demographics') {
+    return {
+      eyebrow: 'Student Distribution Analytics',
+      title: 'Student population and shift distribution',
+      description: 'Review the structure of student records by scope and scheduling arrangement.',
+      icon: HiOutlineUsers,
+    };
+  }
+
+  return {
+    eyebrow: 'Attendance Analytics Center',
+    title: 'Attendance trend and monitoring overview',
+    description: 'Track attendance movement over time and review present, absent, and late percentages.',
+    icon: HiOutlineClipboardCheck,
+  };
+}
+
 export default function ReportsPage() {
   const [reportType, setReportType] = useState('attendance');
   const [period, setPeriod] = useState('monthly');
   const [selectedClass, setSelectedClass] = useState('all');
-  const [recentReports, setRecentReports] = useState(() =>
-    safeReadJson(REPORT_HISTORY_KEY, []).slice(0, 8)
-  );
+  const [recentReports, setRecentReports] = useState(() => safeReadJson(REPORT_HISTORY_KEY, []).slice(0, 8));
+  const [students, setStudents] = useState(() => getMergedStudents());
+  const [assignments, setAssignments] = useState(() => safeReadJson(LOCAL_ASSIGNMENTS_KEY, []));
+  const attendanceRecords = useMemo(() => safeReadJson(ATTENDANCE_STORAGE_KEY, {}), []);
   const validSubjects = useMemo(
     () => new Set(subjectOptions.filter((item) => item.value).map((item) => item.label)),
     []
   );
 
-  const students = useMemo(() => getMergedStudents(), []);
-  const attendanceRecords = useMemo(() => safeReadJson(ATTENDANCE_STORAGE_KEY, {}), []);
-  const assignments = useMemo(() => {
-    const localAssignments = safeReadJson(LOCAL_ASSIGNMENTS_KEY, []);
-    return localAssignments.length > 0 ? localAssignments : defaultAssignments;
+  useEffect(() => {
+    let isActive = true;
+
+    const loadStudents = async () => {
+      const localStudents = safeReadJson(LOCAL_STUDENTS_KEY, []);
+      try {
+        const response = await studentsAPI.getAll();
+        const apiStudents = Array.isArray(response?.data) ? response.data : [];
+        const seen = new Set();
+        const merged = [...localStudents, ...apiStudents].filter((student, index) => {
+          const key =
+            (student?.id != null && `id:${String(student.id)}`) ||
+            (student?.studentId && `studentId:${String(student.studentId)}`) ||
+            (student?.email && `email:${String(student.email).toLowerCase()}`) ||
+            `fallback:${String(student?.name || '').toLowerCase()}-${String(student?.class || '')}-${index}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        if (isActive) {
+          setStudents(merged);
+        }
+      } catch {
+        if (isActive) {
+          setStudents(getMergedStudents());
+        }
+      }
+    };
+
+    const loadAssignments = async () => {
+      const localAssignments = safeReadJson(LOCAL_ASSIGNMENTS_KEY, []);
+      try {
+        const response = await assignmentsAPI.getAll();
+        const apiAssignments = Array.isArray(response?.data) ? response.data : [];
+        if (isActive) {
+          setAssignments([
+            ...apiAssignments,
+            ...localAssignments.filter(
+              (localItem) => !apiAssignments.some((apiItem) => String(apiItem.id) === String(localItem.id))
+            ),
+          ]);
+        }
+      } catch {
+        if (isActive) {
+          setAssignments(localAssignments);
+        }
+      }
+    };
+
+    loadStudents();
+    loadAssignments();
+    return () => {
+      isActive = false;
+    };
   }, []);
+
   const filteredStudents = useMemo(() => {
     if (selectedClass === 'all') return students;
     return students.filter((student) => student.class === selectedClass);
   }, [selectedClass, students]);
 
   const attendanceTrend = useMemo(() => {
-    const studentIds = new Set(filteredStudents.map((student) => String(student.id)));
+    const studentKeys = new Set(
+      filteredStudents.map((student) => String(student.id || student.studentId || student.email || student.name))
+    );
     const buckets = {};
 
     Object.entries(attendanceRecords || {}).forEach(([dateKey, dayRecord]) => {
@@ -142,7 +221,7 @@ export default function ReportsPage() {
       }
 
       Object.entries(dayRecord || {}).forEach(([studentId, status]) => {
-        if (!studentIds.has(String(studentId))) return;
+        if (!studentKeys.has(String(studentId))) return;
         if (!status) return;
         if (status === 'present') buckets[bucketKey].present += 1;
         if (status === 'absent') buckets[bucketKey].absent += 1;
@@ -156,7 +235,7 @@ export default function ReportsPage() {
       .map(([bucketKey, value]) => {
         const marked = value.marked || 1;
         return {
-          period: getBucketLabel(bucketKey, period),
+          period: bucketKey,
           present: round((value.present / marked) * 100),
           absent: round((value.absent / marked) * 100),
           late: round((value.late / marked) * 100),
@@ -164,16 +243,12 @@ export default function ReportsPage() {
         };
       });
 
-    return sorted.length > 0
-      ? sorted
-      : [{ period: 'No Data', present: 0, absent: 0, late: 0, marked: 0 }];
+    return sorted.length > 0 ? sorted : [{ period: 'No Data', present: 0, absent: 0, late: 0, marked: 0 }];
   }, [attendanceRecords, filteredStudents, period]);
 
   const performanceData = useMemo(() => {
     const scoped = assignments.filter((assignment) =>
-      selectedClass === 'all'
-        ? true
-        : (assignment.classCode || assignment.class) === selectedClass
+      selectedClass === 'all' ? true : (assignment.classCode || assignment.class) === selectedClass
     );
 
     const subjectMap = {};
@@ -199,9 +274,7 @@ export default function ReportsPage() {
       };
     });
 
-    return result.length > 0
-      ? result
-      : [{ subject: 'No Data', average: 0, highest: 0, lowest: 0 }];
+    return result.length > 0 ? result : [{ subject: 'No Data', average: 0, highest: 0, lowest: 0 }];
   }, [assignments, selectedClass, validSubjects]);
 
   const demographicsData = useMemo(() => {
@@ -238,6 +311,40 @@ export default function ReportsPage() {
       subjects: performanceData.filter((row) => row.subject !== 'No Data').length,
     };
   }, [attendanceTrend, filteredStudents.length, performanceData]);
+
+  const reportMeta = getReportMeta(reportType);
+  const ReportIcon = reportMeta.icon;
+
+  const statCards = [
+    {
+      label: 'Students in Scope',
+      value: summaryStats.students,
+      hint: selectedClass === 'all' ? 'All classes included' : `Filtered to ${selectedClass}`,
+      tone: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200',
+      icon: HiOutlineUsers,
+    },
+    {
+      label: 'Attendance Marked',
+      value: summaryStats.attendanceMarked,
+      hint: `${summaryStats.avgPresent}% average present`,
+      tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200',
+      icon: HiOutlineClipboardCheck,
+    },
+    {
+      label: 'Performance Average',
+      value: `${summaryStats.avgPerformance}%`,
+      hint: `${summaryStats.subjects} subjects analysed`,
+      tone: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200',
+      icon: HiOutlineChartBar,
+    },
+    {
+      label: 'Current Period',
+      value: period.charAt(0).toUpperCase() + period.slice(1),
+      hint: 'Reporting interval currently selected',
+      tone: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200',
+      icon: HiOutlineClock,
+    },
+  ];
 
   const exportReport = () => {
     const classLabel = selectedClass === 'all' ? 'All Classes' : selectedClass;
@@ -302,84 +409,153 @@ export default function ReportsPage() {
   };
 
   const classesWithAll = useMemo(
-    () => [{ value: 'all', label: 'All Classes' }, ...classOptions.filter((opt) => opt.value)],
+    () => [{ value: 'all', label: 'All Classes' }, ...classOptions.filter((option) => option.value)],
     []
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Reports & Analytics</h1>
-          <p className="text-sm text-gray-500 mt-1">Real-time insights from attendance, students, and assignments.</p>
+      <section className="institution-card overflow-hidden rounded-[28px] px-6 py-6 sm:px-8">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-end">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--moeys-gold)]">
+              {reportMeta.eyebrow}
+            </p>
+            <h1 className="mt-3 text-3xl font-bold text-gray-800 dark:text-gray-100 sm:text-4xl">
+              {reportMeta.title}
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-gray-600 dark:text-gray-300">
+              {reportMeta.description}
+            </p>
+          </div>
+
+          <div className="rounded-[24px] border border-[rgba(15,47,99,0.08)] bg-[linear-gradient(135deg,rgba(15,47,99,0.05),rgba(200,155,60,0.08))] px-5 py-5 dark:border-slate-700 dark:bg-[linear-gradient(135deg,rgba(30,64,175,0.14),rgba(200,155,60,0.1))]">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-[var(--moeys-navy)]/10 p-3 text-[var(--moeys-navy)] dark:bg-white/10 dark:text-white">
+                <ReportIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Export-ready analytics</p>
+                <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  The reporting center stays tied to current class scope, stored attendance, and assignment activity.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-        <Button icon={HiOutlineDownload} variant="secondary" onClick={exportReport}>
-          Export Report
-        </Button>
-      </div>
+      </section>
 
-      <div className="bg-white rounded-xl p-4 shadow-card flex flex-wrap gap-4">
-        <Select
-          options={[
-            { value: 'attendance', label: 'Attendance Report' },
-            { value: 'performance', label: 'Performance Report' },
-            { value: 'demographics', label: 'Demographics' },
-          ]}
-          value={reportType}
-          onChange={setReportType}
-          className="min-w-[200px]"
-        />
-        <Select
-          options={[
-            { value: 'weekly', label: 'Weekly' },
-            { value: 'monthly', label: 'Monthly' },
-            { value: 'quarterly', label: 'Quarterly' },
-            { value: 'yearly', label: 'Yearly' },
-          ]}
-          value={period}
-          onChange={setPeriod}
-          className="min-w-[150px]"
-        />
-        <Select
-          options={classesWithAll}
-          value={selectedClass}
-          onChange={setSelectedClass}
-          className="min-w-[150px]"
-        />
-      </div>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {statCards.map((stat) => (
+          <article key={stat.label} className="institution-card rounded-[24px] px-5 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.label}</p>
+                <p className="mt-2 text-3xl font-bold text-gray-800 dark:text-gray-100">{stat.value}</p>
+              </div>
+              <div className={`rounded-2xl p-3 ${stat.tone}`}>
+                <stat.icon className="h-6 w-6" />
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">{stat.hint}</p>
+          </article>
+        ))}
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl p-6 shadow-card lg:col-span-2">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            {reportType === 'attendance'
-              ? 'Attendance Trend by Period'
-              : reportType === 'performance'
-              ? 'Subject Submission Performance'
-              : 'Student Shift Distribution'}
-          </h2>
+      <section className="institution-card rounded-[28px] px-5 py-5 sm:px-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--moeys-gold)]">
+              Report Controls
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
+              Filter and export institutional reports
+            </h2>
+          </div>
+          <Button icon={HiOutlineDownload} variant="secondary" onClick={exportReport}>
+            Export Report
+          </Button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Select
+            options={[
+              { value: 'attendance', label: 'Attendance Report' },
+              { value: 'performance', label: 'Performance Report' },
+              { value: 'demographics', label: 'Demographics Report' },
+            ]}
+            value={reportType}
+            onChange={setReportType}
+            className="min-w-[200px]"
+          />
+          <Select
+            options={[
+              { value: 'weekly', label: 'Weekly' },
+              { value: 'monthly', label: 'Monthly' },
+              { value: 'quarterly', label: 'Quarterly' },
+              { value: 'yearly', label: 'Yearly' },
+            ]}
+            value={period}
+            onChange={setPeriod}
+            className="min-w-[160px]"
+          />
+          <Select
+            options={classesWithAll}
+            value={selectedClass}
+            onChange={setSelectedClass}
+            className="min-w-[160px]"
+          />
+          <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-slate-950/50 dark:text-gray-300">
+            {selectedClass === 'all'
+              ? 'Viewing report output across all configured classes.'
+              : `Viewing report output for ${selectedClass}.`}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_360px]">
+        <div className="institution-card rounded-[28px] px-5 py-5 sm:px-6">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--moeys-gold)]">
+                Visual Analysis
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
+                {reportType === 'attendance'
+                  ? 'Attendance trend by period'
+                  : reportType === 'performance'
+                    ? 'Subject submission performance'
+                    : 'Student shift distribution'}
+              </h2>
+            </div>
+            <div className="rounded-2xl bg-slate-100 p-3 text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+              <HiOutlineDocumentReport className="h-5 w-5" />
+            </div>
+          </div>
+
           <div className="h-[380px]">
             <ResponsiveContainer width="100%" height="100%">
               {reportType === 'attendance' ? (
                 <LineChart data={attendanceTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="period" stroke="#9ca3af" />
-                  <YAxis stroke="#9ca3af" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="period" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="present" stroke="#16a34a" strokeWidth={2} />
-                  <Line type="monotone" dataKey="absent" stroke="#dc2626" strokeWidth={2} />
-                  <Line type="monotone" dataKey="late" stroke="#ea580c" strokeWidth={2} />
+                  <Line type="monotone" dataKey="present" stroke="#16a34a" strokeWidth={2.5} />
+                  <Line type="monotone" dataKey="absent" stroke="#dc2626" strokeWidth={2.5} />
+                  <Line type="monotone" dataKey="late" stroke="#ea580c" strokeWidth={2.5} />
                 </LineChart>
               ) : reportType === 'performance' ? (
                 <BarChart data={performanceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="subject" stroke="#9ca3af" />
-                  <YAxis stroke="#9ca3af" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="subject" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="average" fill="#2563eb" />
-                  <Bar dataKey="highest" fill="#16a34a" />
-                  <Bar dataKey="lowest" fill="#ea580c" />
+                  <Bar dataKey="average" fill="#1d4ed8" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="highest" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="lowest" fill="#ea580c" radius={[6, 6, 0, 0]} />
                 </BarChart>
               ) : (
                 <PieChart>
@@ -387,8 +563,8 @@ export default function ReportsPage() {
                     data={demographicsData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={110}
+                    innerRadius={62}
+                    outerRadius={112}
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
@@ -404,52 +580,76 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Key Statistics</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">Students in Scope</span>
-              <span className="text-lg font-bold text-gray-800">{summaryStats.students}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">Average Present</span>
-              <span className="text-lg font-bold text-green-600">{summaryStats.avgPresent}%</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">Average Absent</span>
-              <span className="text-lg font-bold text-red-600">{summaryStats.avgAbsent}%</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">Performance Average</span>
-              <span className="text-lg font-bold text-blue-600">{summaryStats.avgPerformance}%</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">Subjects Reported</span>
-              <span className="text-lg font-bold text-gray-800">{summaryStats.subjects}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Exports</h2>
-          <div className="space-y-3">
-            {recentReports.length === 0 ? (
-              <p className="text-sm text-gray-500">No exports yet. Export a report to create history.</p>
-            ) : (
-              recentReports.map((item) => (
-                <div key={item.id} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
-                  <p className="text-sm font-medium text-gray-700">
-                    {item.type.charAt(0).toUpperCase() + item.type.slice(1)} | {item.classLabel}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {item.period} | {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
-                  </p>
+        <div className="space-y-6">
+          <div className="institution-card rounded-[28px] px-6 py-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--moeys-gold)]">
+              Key Statistics
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
+              Summary indicators
+            </h2>
+            <div className="mt-5 space-y-4">
+              <div className="rounded-2xl bg-gray-50 px-4 py-4 dark:bg-slate-950/50">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Students in Scope</span>
+                  <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{summaryStats.students}</span>
                 </div>
-              ))
-            )}
+              </div>
+              <div className="rounded-2xl bg-gray-50 px-4 py-4 dark:bg-slate-950/50">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Average Present</span>
+                  <span className="text-lg font-bold text-green-600">{summaryStats.avgPresent}%</span>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-gray-50 px-4 py-4 dark:bg-slate-950/50">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Average Absent</span>
+                  <span className="text-lg font-bold text-red-600">{summaryStats.avgAbsent}%</span>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-gray-50 px-4 py-4 dark:bg-slate-950/50">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Performance Average</span>
+                  <span className="text-lg font-bold text-blue-600">{summaryStats.avgPerformance}%</span>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-gray-50 px-4 py-4 dark:bg-slate-950/50">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Subjects Reported</span>
+                  <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{summaryStats.subjects}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="institution-card rounded-[28px] px-6 py-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--moeys-gold)]">
+              Recent Exports
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
+              Report history
+            </h2>
+            <div className="mt-5 space-y-3">
+              {recentReports.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm text-gray-500 dark:border-slate-700 dark:text-gray-400">
+                  No report exports yet. Generate an export to create history.
+                </div>
+              ) : (
+                recentReports.map((item) => (
+                  <div key={item.id} className="rounded-2xl bg-gray-50 px-4 py-4 dark:bg-slate-950/50">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                      {item.type.charAt(0).toUpperCase() + item.type.slice(1)} | {item.classLabel}
+                    </p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                      {item.period} | {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

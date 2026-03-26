@@ -17,27 +17,19 @@ export const makeStudentEmail = (name, classCode) => {
     .replace(/[^a-z0-9]+/g, '.')
     .replace(/(^\.|\.$)/g, '');
   const classSuffix = String(classCode || 'class').toLowerCase();
-  return `${slug || 'student'}.${classSuffix}@school.local`;
+  return slug && classSuffix ? `${slug}.${classSuffix}@school.edu` : '';
 };
 
-const buildDobFromSeed = (seedValue) => {
-  const seed = Math.abs(Number(seedValue) || 1);
-  const year = 2004 + (seed % 7); // 2004..2010
-  const month = (seed % 12) + 1;
-  const day = (seed % 28) + 1;
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-};
-
-export const normalizeDateOfBirth = (value, seedValue = 1) => {
+export const normalizeDateOfBirth = (value, _seedValue = 1) => {
   const raw = String(value || '').trim();
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return buildDobFromSeed(seedValue);
+  if (!match) return '';
 
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
   const valid = year >= 1990 && year <= 2020 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
-  return valid ? `${match[1]}-${match[2]}-${match[3]}` : buildDobFromSeed(seedValue);
+  return valid ? `${match[1]}-${match[2]}-${match[3]}` : '';
 };
 
 export const getLastName = (name) => {
@@ -48,6 +40,7 @@ export const getLastName = (name) => {
 
 export const dateOfBirthToCompact = (dateOfBirth) => {
   const normalized = normalizeDateOfBirth(dateOfBirth);
+  if (!normalized) return '';
   const parts = normalized.split('-');
   return `${parts[2]}${parts[1]}${parts[0]}`; // DDMMYYYY
 };
@@ -55,6 +48,7 @@ export const dateOfBirthToCompact = (dateOfBirth) => {
 export const buildStudentPassword = (student) => {
   const lastName = getLastName(student?.name);
   const dobCompact = dateOfBirthToCompact(student?.dateOfBirth);
+  if (!dobCompact) return '';
   return `${lastName}${dobCompact}`;
 };
 
@@ -80,11 +74,10 @@ export const normalizeStudentAccount = (student, seedValue = 1) => {
   const avatarSeed = student?.email || student?.name || student?.studentId || `student-${seedValue}`;
   return {
     ...student,
-    section: student?.section || 'A',
-    shift: student?.shift || 'Morning',
+    shift: student?.shift || '',
     gender,
     dateOfBirth,
-    email: student?.email || makeStudentEmail(student?.name, student?.class),
+    email: student?.email || '',
     avatar: student?.avatar || generateAvatarByGender(avatarSeed, gender),
   };
 };

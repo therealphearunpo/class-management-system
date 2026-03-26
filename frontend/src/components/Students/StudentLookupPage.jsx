@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { HiChevronDown, HiOutlineDownload, HiOutlineMail, HiOutlineSearch } from 'react-icons/hi';
 
-import { classOptions as studentClassOptions, studentsData } from '../../data/students';
+import { classOptions as studentClassOptions } from '../../data/students';
 import { studentsAPI } from '../../services/api';
-import { buildStudentPassword, normalizeStudentAccount, normalizeStudentIds } from '../../utils/studentAuth';
+import { buildStudentPassword, normalizeStudentAccount } from '../../utils/studentAuth';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
 
@@ -56,7 +56,7 @@ const formatDobLabel = (dateOfBirth) => {
 export default function StudentLookupPage() {
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState([]);
-  const [studentIdQuery, setStudentIdQuery] = useState('');
+  const [nameQuery, setNameQuery] = useState('');
   const [emailQuery, setEmailQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
@@ -76,19 +76,15 @@ export default function StudentLookupPage() {
       try {
         const response = await studentsAPI.getAll();
         const apiStudents = Array.isArray(response?.data) ? response.data : [];
-        const base = apiStudents.length > 0
-          ? apiStudents.map((student, index) => normalizeStudentAccount(student, student.id ?? index + 1))
-          : studentsData.map((student, index) => normalizeStudentAccount(student, student.id ?? index + 1));
-        mergedStudents = mergeUniqueById([...localStudents, ...base]);
-      } catch {
         mergedStudents = mergeUniqueById([
           ...localStudents,
-          ...studentsData.map((student, index) => normalizeStudentAccount(student, student.id ?? index + 1)),
+          ...apiStudents.map((student, index) => normalizeStudentAccount(student, student.id ?? index + 1)),
         ]);
+      } catch {
+        mergedStudents = mergeUniqueById(localStudents);
       }
 
-      const withIds = normalizeStudentIds(mergedStudents);
-      const normalized = withIds.map((student, index) =>
+      const normalized = mergedStudents.map((student, index) =>
         normalizeStudentAccount(student, student.id ?? index + 1)
       );
       setStudents(normalized);
@@ -99,19 +95,19 @@ export default function StudentLookupPage() {
   }, []);
 
   const searchResults = useMemo(() => {
-    const idTerm = studentIdQuery.trim().toLowerCase();
+    const nameTerm = nameQuery.trim().toLowerCase();
     const emailTerm = emailQuery.trim().toLowerCase();
 
-    if (!idTerm && !emailTerm) return [];
+    if (!nameTerm && !emailTerm) return [];
 
     return students.filter((student) => {
-      const studentId = String(student.studentId || '').toLowerCase();
+      const name = String(student.name || '').toLowerCase();
       const email = String(student.email || '').toLowerCase();
-      const matchId = idTerm ? studentId.includes(idTerm) : true;
+      const matchName = nameTerm ? name.includes(nameTerm) : true;
       const matchEmail = emailTerm ? email.includes(emailTerm) : true;
-      return matchId && matchEmail;
+      return matchName && matchEmail;
     });
-  }, [students, studentIdQuery, emailQuery]);
+  }, [students, nameQuery, emailQuery]);
 
   const classOptions = useMemo(() => {
     const classesFromData = studentClassOptions
@@ -160,10 +156,9 @@ export default function StudentLookupPage() {
 
   const exportCsv = () => {
     const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const header = ['Name', 'Student ID', 'Class', 'Shift', 'Date of Birth', 'Login Password', 'Email'];
+    const header = ['Name', 'Class', 'Shift', 'Date of Birth', 'Login Password', 'Email'];
     const rows = allStudentsSorted.map((student) => ([
       student.name,
-      student.studentId,
       student.class,
       student.shift,
       student.dateOfBirth || '',
@@ -185,7 +180,6 @@ export default function StudentLookupPage() {
     const rows = allStudentsSorted.map((student) => `
       <tr>
         <td>${escapeHtml(student.name)}</td>
-        <td>${escapeHtml(student.studentId)}</td>
         <td>${escapeHtml(student.class)}</td>
         <td>${escapeHtml(student.shift)}</td>
         <td>${escapeHtml(student.dateOfBirth || '')}</td>
@@ -202,7 +196,6 @@ export default function StudentLookupPage() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Student ID</th>
                 <th>Class</th>
                 <th>Shift</th>
                 <th>Date of Birth</th>
@@ -242,22 +235,22 @@ export default function StudentLookupPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Student Lookup</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Teacher access only. Search students by Student ID or email to view full profile details.
+          Teacher access only. Search students by name or email to view full profile details.
         </p>
       </div>
 
       <form onSubmit={submitSearch} className="bg-white rounded-xl shadow-card p-4 sm:p-5 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label htmlFor="lookup-id" className="block text-sm font-medium text-gray-700 mb-1">
-              Student ID
+            <label htmlFor="lookup-name" className="block text-sm font-medium text-gray-700 mb-1">
+              Student Name
             </label>
             <input
-              id="lookup-id"
+              id="lookup-name"
               type="text"
-              value={studentIdQuery}
-              onChange={(e) => setStudentIdQuery(e.target.value)}
-              placeholder="Example: CMS100245"
+              value={nameQuery}
+              onChange={(e) => setNameQuery(e.target.value)}
+              placeholder="Example: Sok Davin"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
@@ -270,7 +263,7 @@ export default function StudentLookupPage() {
               type="email"
               value={emailQuery}
               onChange={(e) => setEmailQuery(e.target.value)}
-              placeholder="Example: sok.davin.12a@school.local"
+              placeholder="Example: student@school.edu"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
@@ -278,7 +271,7 @@ export default function StudentLookupPage() {
 
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-gray-500">
-            Enter at least one field. You can combine ID and email to narrow results.
+            Enter at least one field. You can combine name and email to narrow results.
           </p>
           <Button type="submit" icon={HiOutlineSearch}>
             Search
@@ -323,7 +316,7 @@ export default function StudentLookupPage() {
                 >
                   <p className="text-sm font-semibold text-gray-800">{student.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {student.studentId} - {student.class}
+                    {student.class} {student.email ? `- ${student.email}` : ''}
                   </p>
                 </button>
               ))}
@@ -342,10 +335,6 @@ export default function StudentLookupPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Student ID</p>
-                    <p className="text-sm font-semibold text-gray-800 mt-1">{selectedStudent.studentId}</p>
-                  </div>
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">Email</p>
                     <p className="text-sm font-semibold text-gray-800 mt-1 break-all">{selectedStudent.email}</p>
@@ -479,7 +468,6 @@ export default function StudentLookupPage() {
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
                     <th className="text-left px-3 py-2 text-gray-600 font-medium">Name</th>
-                    <th className="text-left px-3 py-2 text-gray-600 font-medium">Student ID</th>
                     <th className="text-left px-3 py-2 text-gray-600 font-medium">Class</th>
                     <th className="text-left px-3 py-2 text-gray-600 font-medium">Date of Birth</th>
                     <th className="text-left px-3 py-2 text-gray-600 font-medium">Login Password</th>
@@ -490,7 +478,6 @@ export default function StudentLookupPage() {
                   {allStudentsSorted.map((student) => (
                     <tr key={student.id} className="border-t border-gray-100">
                       <td className="px-3 py-2 text-gray-800">{student.name}</td>
-                      <td className="px-3 py-2 text-gray-700">{student.studentId}</td>
                       <td className="px-3 py-2 text-gray-700">{student.class}</td>
                       <td className="px-3 py-2 text-gray-700">{formatDobLabel(student.dateOfBirth)}</td>
                       <td className="px-3 py-2 text-gray-700">{buildStudentPassword(student)}</td>

@@ -133,6 +133,20 @@ export default function AttendancePage() {
     resetStaffForm();
   };
 
+  const handleRemoveStaff = (staffId) => {
+    const target = staffMembers.find((item) => item.id === staffId);
+    if (!target) return;
+    if (!window.confirm(`Remove ${target.name} from staff management?`)) return;
+
+    const saved = saveTeachers(staffMembers.filter((item) => item.id !== staffId));
+    setStaffMembers(saved);
+    window.dispatchEvent(new Event('teachers-updated'));
+
+    if (staffForm.id === staffId) {
+      resetStaffForm();
+    }
+  };
+
   const exportAttendanceCsv = () => {
     if (filteredStudents.length === 0) return;
 
@@ -413,19 +427,31 @@ export default function AttendancePage() {
             </div>
           </form>
 
-          <div className="mt-4 border-t border-gray-100 pt-3 max-h-44 overflow-y-auto">
+          <div className="mt-4 border-t border-gray-100 pt-3 max-h-56 overflow-y-auto">
             <p className="text-xs font-medium text-gray-600 mb-2">Existing Staff</p>
             <div className="space-y-1.5">
               {staffMembers.map((staff) => (
-                <button
+                <div
                   key={staff.id}
-                  type="button"
-                  onClick={() => handleEditStaff(staff)}
-                  className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-50 border border-transparent hover:border-gray-200"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-transparent px-2 py-1.5 hover:border-gray-200 hover:bg-gray-50"
                 >
-                  <p className="text-sm text-gray-800">{staff.name}</p>
-                  <p className="text-xs text-gray-500">{staff.class} | {staff.subject}</p>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleEditStaff(staff)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="text-sm text-gray-800">{staff.name}</p>
+                    <p className="text-xs text-gray-500">{staff.class} | {staff.subject}</p>
+                  </button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    onClick={() => handleRemoveStaff(staff.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
               ))}
             </div>
           </div>

@@ -9,7 +9,6 @@ const ADMIN_CENTER_EMAILS = [
   'nim.cheyseth.2824@rupp.edu.kh',
   'thet.englang.2824@rupp.edu.kh',
   'po.phearun.2824@rupp.edu.kh',
-  'admin.center@school.local',
 ];
 
 const initialState = {

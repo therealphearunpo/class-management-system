@@ -1,4 +1,5 @@
 export const LOCAL_MARKSHEETS_KEY = 'marksheets_local_v2';
+export const LOCAL_STUDENTS_KEY = 'students_local_v2';
 export const SUBJECTS = ['math', 'science', 'english', 'history', 'computer'];
 
 export function safeReadJson(key, fallback) {
@@ -29,8 +30,26 @@ export function clampScore(value) {
 export function normalizeStudent(student) {
   return {
     ...student,
-    section: student.section || 'A',
   };
+}
+
+export function uniqueStudents(students) {
+  const seen = new Set();
+
+  return (Array.isArray(students) ? students : []).filter((student) => {
+    const normalized = normalizeStudent(student);
+    const key = normalized.id != null
+      ? `id:${String(normalized.id)}`
+      : [
+        normalized.name,
+        normalized.class,
+        normalized.rollNo,
+      ].map((value) => String(value ?? '').trim()).join('|');
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function normalizeScoreMap(payload) {

@@ -7,6 +7,7 @@ import AttendancePage from './components/Attendance/AttendancePage';
 import LoginPage from './components/Auth/LoginPage';
 import CalendarPage from './components/Calendar/CalendarPage';
 import DashboardPage from './components/Dashboard/DashboardPage';
+import DeveloperToolsPage from './components/DeveloperTools/DeveloperToolsPage';
 import ExamsPage from './components/Exams/ExamsPage';
 import Layout from './components/Layout/Layout';
 import MarksheetsPage from './components/Marksheets/MarksheetsPage';
@@ -20,6 +21,9 @@ import { ACCOUNT_ROLES, getRoleHomePath, normalizeRole } from './constants/roles
 import { AttendanceProvider } from './context/AttendanceContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+
+const STUDENT_DATA_RESET_KEY = 'student_data_reset_v1';
+const STUDENT_STORAGE_KEYS = ['students_local_v2', 'marksheets_local_v2'];
 
 function PrivateRoute({ children, allowedRoles }) {
   const { isAuthenticated, loading, user } = useAuth();
@@ -128,6 +132,13 @@ function AppRoutes() {
           </Layout>
         </PrivateRoute>
       } />
+      <Route path="/developer-tools" element={
+        <PrivateRoute allowedRoles={[ACCOUNT_ROLES.ADMIN]}>
+          <Layout>
+            <DeveloperToolsPage />
+          </Layout>
+        </PrivateRoute>
+      } />
       <Route path="/calendar" element={
         <PrivateRoute allowedRoles={[ACCOUNT_ROLES.STUDENT, ACCOUNT_ROLES.TEACHER, ACCOUNT_ROLES.ADMIN]}>
           <Layout>
@@ -157,6 +168,16 @@ function AppRoutes() {
 export default function App() {
   const rawBase = process.env.PUBLIC_URL;
   const routerBase = rawBase && rawBase !== '.' ? rawBase : '/';
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(STUDENT_DATA_RESET_KEY) === 'done') return;
+      STUDENT_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+      localStorage.setItem(STUDENT_DATA_RESET_KEY, 'done');
+    } catch (_error) {
+      // Ignore storage cleanup failures.
+    }
+  }, []);
 
   return (
     <BrowserRouter basename={routerBase}>

@@ -5,8 +5,33 @@ import { format } from 'date-fns';
 import { ACCOUNT_ROLES, normalizeRole } from '../constants/roles';
 import { useAttendanceContext } from '../context/AttendanceContext';
 import { useAuth } from '../context/AuthContext';
-import { studentsData } from '../data/students';
 import { loadTeachers } from '../data/teachers';
+import { studentsAPI } from '../services/api';
+
+const LOCAL_STUDENTS_KEY = 'students_local_v2';
+
+function readLocalStudents() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STUDENTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function mergeUniqueStudents(items) {
+  const map = new Map();
+  items.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return;
+    const idKey = item.id != null ? `id:${String(item.id)}` : '';
+    const studentIdKey = item.studentId ? `studentId:${String(item.studentId)}` : '';
+    const emailKey = item.email ? `email:${String(item.email).toLowerCase()}` : '';
+    const fallbackKey = `fallback:${String(item.name || '').toLowerCase()}-${String(item.class || '')}-${index}`;
+    map.set(idKey || studentIdKey || emailKey || fallbackKey, item);
+  });
+  return Array.from(map.values());
+}
 
 export function useFilteredStudents() {
   const { user } = useAuth();
@@ -14,6 +39,7 @@ export function useFilteredStudents() {
   const isAdmin = role === ACCOUNT_ROLES.ADMIN;
   const { selectedClass, selectedShift, selectedSubject } = useAttendanceContext();
   const [teachers, setTeachers] = useState(() => (isAdmin ? loadTeachers() : []));
+  const [students, setStudents] = useState(() => (isAdmin ? [] : readLocalStudents()));
 
   useEffect(() => {
     if (!isAdmin) return undefined;
@@ -27,21 +53,49 @@ export function useFilteredStudents() {
     };
   }, [isAdmin]);
 
+  useEffect(() => {
+    if (isAdmin) return undefined;
+
+    let isActive = true;
+
+    const loadStudents = async () => {
+      const localStudents = readLocalStudents();
+      try {
+        const response = await studentsAPI.getAll();
+        const apiStudents = Array.isArray(response?.data) ? response.data : [];
+        if (isActive) {
+          setStudents(mergeUniqueStudents([...localStudents, ...apiStudents]));
+        }
+      } catch {
+        if (isActive) {
+          setStudents(mergeUniqueStudents(localStudents));
+        }
+      }
+    };
+
+    loadStudents();
+    window.addEventListener('storage', loadStudents);
+    return () => {
+      isActive = false;
+      window.removeEventListener('storage', loadStudents);
+    };
+  }, [isAdmin]);
+
   const filteredStudents = useMemo(() => {
-    let students = isAdmin ? [...teachers] : [...studentsData];
+    let scopedStudents = isAdmin ? [...teachers] : [...students];
 
     if (selectedClass) {
-      students = students.filter(s => s.class === selectedClass);
+      scopedStudents = scopedStudents.filter(s => s.class === selectedClass);
     }
     if (!isAdmin && selectedShift) {
-      students = students.filter(s => s.shift === selectedShift);
+      scopedStudents = scopedStudents.filter(s => s.shift === selectedShift);
     }
     if (isAdmin && selectedSubject) {
-      students = students.filter((teacher) => teacher.subject === selectedSubject);
+      scopedStudents = scopedStudents.filter((teacher) => teacher.subject === selectedSubject);
     }
 
-    return students;
-  }, [isAdmin, selectedClass, selectedShift, selectedSubject, teachers]);
+    return scopedStudents;
+  }, [isAdmin, selectedClass, selectedShift, selectedSubject, teachers, students]);
 
   const groupedStudents = useMemo(() => {
     const groups = {};

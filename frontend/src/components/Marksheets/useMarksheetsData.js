@@ -8,7 +8,6 @@ import {
   safeReadJson,
   uniqueStudents,
 } from './marksheetUtils';
-import { studentsData } from '../../data/students';
 import { marksheetsAPI, studentsAPI } from '../../services/api';
 
 export default function useMarksheetsData() {
@@ -25,10 +24,9 @@ export default function useMarksheetsData() {
       try {
         const response = await studentsAPI.getAll();
         const apiStudents = Array.isArray(response?.data) ? response.data : [];
-        const baseStudents = apiStudents.length > 0 ? apiStudents : studentsData;
-        mergedStudents = uniqueStudents([...localStudents, ...baseStudents.map(normalizeStudent)]);
+        mergedStudents = uniqueStudents([...localStudents, ...apiStudents.map(normalizeStudent)]);
       } catch {
-        mergedStudents = uniqueStudents([...localStudents, ...studentsData.map(normalizeStudent)]);
+        mergedStudents = uniqueStudents(localStudents);
       }
 
       let apiScores = {};

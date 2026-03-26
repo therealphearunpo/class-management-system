@@ -18,7 +18,6 @@ import {
   DEFAULT_SHIFT,
   DEFAULT_SUBJECT_LABEL,
   normalizeShift,
-  studentsData,
   subjectOptions,
 } from '../../data/students';
 import { assignmentsAPI, studentsAPI } from '../../services/api';
@@ -195,9 +194,9 @@ export default function AssignmentsPage() {
       try {
         const response = await studentsAPI.getAll();
         const apiStudents = Array.isArray(response?.data) ? response.data : [];
-        mergedStudents = mergeUniqueById([...localStudents, ...(apiStudents.length > 0 ? apiStudents : studentsData)]);
+        mergedStudents = mergeUniqueById([...localStudents, ...apiStudents]);
       } catch {
-        mergedStudents = mergeUniqueById([...localStudents, ...studentsData]);
+        mergedStudents = mergeUniqueById(localStudents);
       }
       setStudents(mergedStudents.map(normalizeStudent));
 

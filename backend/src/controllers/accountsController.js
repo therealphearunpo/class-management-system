@@ -14,7 +14,7 @@ function makeStudentEmail(studentCode) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '');
 
-  return `${normalized || `student${Date.now()}`}@student.school.local`;
+  return `${normalized || `student${Date.now()}`}@student.school.edu`;
 }
 
 function toAccountSummary(account) {

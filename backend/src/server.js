@@ -4,7 +4,6 @@ const cors = require('cors');
 const express = require('express');
 
 const { env, validateEnv } = require('./config/env');
-const { syncDemoUsers } = require('./bootstrap/syncDemoUsers');
 const pool = require('./config/db');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -67,7 +66,6 @@ app.use((error, _req, res, _next) => {
 async function start() {
   try {
     await pool.query('SELECT 1');
-    await syncDemoUsers();
     app.listen(env.port, () => {
       console.log(`Backend listening on http://localhost:${env.port}`);
     });

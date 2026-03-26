@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --moeys-navy: #0f2f63;
+  --moeys-royal: #1e4fa8;
+  --moeys-gold: #c89b3c;
+  --moeys-cream: #f7f3e8;
+  --moeys-ink: #10213c;
+  --surface-page:
+    radial-gradient(circle at top left, rgba(200, 155, 60, 0.08), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #eef3fa 100%);
+}
+
 @layer base {
   * {
     margin: 0;
@@ -10,10 +21,11 @@
   }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-family: 'Noto Sans Khmer', 'Battambang', 'Segoe UI', Tahoma, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: #f3f4f6;
+    background: var(--surface-page);
+    color: var(--moeys-ink);
   }
 
   html.dark body {
@@ -24,19 +36,19 @@
 
 @layer components {
   .filter-select {
-    @apply bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
-           min-w-[170px];
+    @apply min-w-[170px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm
+           transition-colors duration-200 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30
+           dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-primary-500;
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/90
            hover:bg-sidebar-hover hover:text-white transition-all duration-200 
-           text-sm font-medium;
+           text-sm font-medium border border-transparent;
   }
 
   .sidebar-link.active {
-    @apply bg-sidebar-active text-white;
+    @apply bg-sidebar-active text-white border-white/10 shadow-sm;
   }
 
   .attendance-btn {
@@ -114,4 +126,149 @@ html.dark textarea {
 html.dark input::placeholder,
 html.dark textarea::placeholder {
   color: #94a3b8;
+}
+
+.institution-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(251, 252, 255, 0.96) 100%);
+  border: 1px solid rgba(15, 47, 99, 0.08);
+  box-shadow: 0 12px 30px rgba(16, 33, 60, 0.08);
+}
+
+.moeys-banner {
+  background:
+    linear-gradient(90deg, rgba(20, 55, 112, 0.94) 0%, rgba(43, 91, 173, 0.9) 70%, rgba(200, 155, 60, 0.82) 100%);
+}
+
+.moeys-heading {
+  font-family: 'Noto Sans Khmer', 'Battambang', 'Segoe UI', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.header-surface {
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid #d7deed;
+  backdrop-filter: blur(12px);
+}
+
+.header-status-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(246, 249, 255, 0.95) 100%);
+  border: 1px solid rgba(15, 47, 99, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 12px 24px rgba(16, 33, 60, 0.08);
+}
+
+.toolbar-surface {
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid #dde5f1;
+}
+
+.moeys-seal {
+  background: #ffffff;
+  color: var(--moeys-navy);
+  border: 2px solid var(--moeys-gold);
+  box-shadow: 0 6px 14px rgba(15, 47, 99, 0.08);
+}
+
+.shell-action {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.shell-action:hover {
+  background: #f4f6fb;
+}
+
+.search-shell {
+  background: #f7f9fc;
+  border: 1px solid #dbe2ee;
+}
+
+.search-dropdown {
+  background: #ffffff;
+  border: 1px solid #d9e3f3;
+  box-shadow: 0 18px 40px rgba(16, 33, 60, 0.12);
+}
+
+.profile-trigger:hover {
+  border-color: #e0e7f2;
+  background: #fbfcfe;
+}
+
+.footer-shell {
+  background:
+    radial-gradient(circle at top right, rgba(200, 155, 60, 0.18), transparent 28%),
+    linear-gradient(180deg, #102d5e 0%, #0b2147 100%);
+  border-top: 1px solid rgba(214, 222, 236, 0.45);
+}
+
+.footer-panel-title {
+  color: var(--moeys-gold);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+.footer-telegram {
+  background: linear-gradient(180deg, #33a8df 0%, #1c81bf 100%);
+  box-shadow: 0 12px 24px rgba(21, 110, 166, 0.3);
+}
+
+html.dark .header-surface {
+  background: rgba(10, 18, 32, 0.92);
+  border-bottom-color: #24324a;
+}
+
+html.dark .toolbar-surface {
+  background: rgba(12, 20, 35, 0.94);
+  border-bottom-color: #24324a;
+}
+
+html.dark .moeys-seal {
+  background: #14213a;
+  color: #f8fbff;
+  border-color: var(--moeys-gold);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
+}
+
+html.dark .shell-action:hover {
+  background: #172235;
+}
+
+html.dark .search-shell {
+  background: #111b2d;
+  border-color: #2a3953;
+}
+
+html.dark .search-dropdown {
+  background: #0f1726;
+  border-color: #2a3953;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.42);
+}
+
+html.dark .profile-trigger:hover {
+  border-color: #2f405f;
+  background: #141f32;
+}
+
+html.dark .header-status-panel {
+  background: linear-gradient(180deg, rgba(17, 27, 44, 0.92) 0%, rgba(12, 20, 35, 0.96) 100%);
+  border-color: rgba(120, 145, 190, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 16px 30px rgba(0, 0, 0, 0.24);
+}
+
+html.dark .institution-card {
+  background: linear-gradient(180deg, rgba(15, 23, 38, 0.98) 0%, rgba(17, 27, 44, 0.98) 100%);
+  border-color: rgba(120, 145, 190, 0.16);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+html.dark .moeys-heading {
+  color: #edf4ff !important;
+}
+
+html.dark .footer-shell {
+  background:
+    radial-gradient(circle at top right, rgba(200, 155, 60, 0.16), transparent 26%),
+    linear-gradient(180deg, #0b1730 0%, #081120 100%);
+  border-top-color: rgba(77, 96, 132, 0.5);
 }
