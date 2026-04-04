@@ -20,6 +20,9 @@ const TELEGRAM_REPORT_PROXY_URL = '/api/telegram/attendance/telegram-report';
 function buildTelegramReportCandidates() {
   const candidates = [];
   const seen = new Set();
+  const canUseProxy =
+    typeof window !== 'undefined' &&
+    API_BASE_URL.startsWith(window.location.origin);
 
   const push = (url) => {
     if (!url) return;
@@ -30,7 +33,9 @@ function buildTelegramReportCandidates() {
   };
 
   push(TELEGRAM_REPORT_URL);
-  push(TELEGRAM_REPORT_PROXY_URL);
+  if (canUseProxy) {
+    push(TELEGRAM_REPORT_PROXY_URL);
+  }
   return candidates;
 }
 

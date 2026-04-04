@@ -15,6 +15,7 @@ const initialState = {
   selectedClass: '',
   selectedSubject: '',
   selectedShift: '',
+  attendanceScope: 'staff',
   viewMode: 'grid',
   isSubmitting: false,
   notification: null,
@@ -188,7 +189,6 @@ function isNetworkFailure(error) {
 export function AttendanceProvider({ children }) {
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
-  const recordType = getRecordTypeFromRole(role);
   const [state, dispatch] = useReducer(
     attendanceReducer,
     initialState,
@@ -218,6 +218,10 @@ export function AttendanceProvider({ children }) {
   const setFilter = useCallback((field, value) => {
     dispatch({ type: 'SET_FILTER', field, payload: value });
   }, []);
+
+  const recordType = role === ACCOUNT_ROLES.ADMIN
+    ? (state.attendanceScope === 'students' ? 'student' : 'teacher')
+    : getRecordTypeFromRole(role);
 
   const setViewMode = useCallback((mode) => {
     dispatch({ type: 'SET_VIEW_MODE', payload: mode });

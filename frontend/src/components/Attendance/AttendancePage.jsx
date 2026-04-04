@@ -30,9 +30,9 @@ const EMPTY_STAFF_FORM = {
 export default function AttendancePage() {
   const { user } = useAuth();
   const isAdmin = normalizeRole(user?.role) === ACCOUNT_ROLES.ADMIN;
-  const recordLabel = isAdmin ? 'Teacher' : 'Student';
 
   const {
+    attendanceScope,
     currentDate,
     selectedClass,
     selectedSubject,
@@ -42,6 +42,8 @@ export default function AttendancePage() {
     notification,
     getStudentStatus,
   } = useAttendanceContext();
+  const isAdminTrackingStudents = isAdmin && attendanceScope === 'students';
+  const recordLabel = isAdminTrackingStudents ? 'Student' : (isAdmin ? 'Teacher' : 'Student');
 
   const { filteredStudents, groupedStudents } = useFilteredStudents();
   const stats = useAttendanceStats();
@@ -305,7 +307,7 @@ export default function AttendancePage() {
         >
           Export Excel
         </Button>
-        {isAdmin && (
+        {isAdmin && !isAdminTrackingStudents && (
           <Button
             variant="secondary"
             size="sm"
@@ -362,7 +364,7 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {isAdmin && (
+      {isAdmin && !isAdminTrackingStudents && (
         <Modal
           isOpen={isStaffModalOpen}
           onClose={() => setIsStaffModalOpen(false)}

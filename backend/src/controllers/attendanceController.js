@@ -25,9 +25,6 @@ function normalizeOptionalText(value, maxLen = 100) {
 }
 
 function assertRoleAccess(role, type) {
-  if (role === 'admin' && type === 'student') {
-    return 'Admin cannot access student attendance.';
-  }
   if (role === 'teacher' && type === 'teacher') {
     return 'Teacher cannot access teacher attendance.';
   }

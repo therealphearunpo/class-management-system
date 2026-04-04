@@ -45,13 +45,14 @@ export function normalizeTeacherStream(value) {
 }
 
 export function normalizeTeacherItem(item, index = 0) {
-  const name = String(item?.name || '').trim() || `Staff ${index + 1}`;
+  const name = String(item?.name || item?.fullName || '').trim() || `Staff ${index + 1}`;
   const stream = normalizeTeacherStream(item?.stream || item?.department || item?.class);
   const subjectPool = DEPARTMENT_SUBJECTS[stream] || fallbackSubjects;
-  const subject = subjectPool.includes(item?.subject) ? item.subject : subjectPool[0];
+  const requestedSubject = item?.subject || item?.subjectName;
+  const subject = subjectPool.includes(requestedSubject) ? requestedSubject : subjectPool[0];
   const baseId = item?.id || `teacher-${toSlug(name) || index + 1}`;
-  const employeeId = String(item?.employeeId || `T${String(index + 1).padStart(4, '0')}`);
-  const gender = normalizeGender(item?.gender, index % 2 === 0 ? 'male' : 'female');
+  const employeeId = String(item?.employeeId || item?.employeeCode || `T${String(index + 1).padStart(4, '0')}`);
+  const gender = normalizeGender(item?.gender || item?.profileGender, index % 2 === 0 ? 'male' : 'female');
   return {
     id: baseId,
     employeeId,
@@ -61,6 +62,8 @@ export function normalizeTeacherItem(item, index = 0) {
     stream,
     subject,
     shift: 'Staff',
+    email: item?.email || '',
+    isActive: item?.isActive !== false,
     avatar: item?.avatar || avatarFor(baseId, gender),
   };
 }

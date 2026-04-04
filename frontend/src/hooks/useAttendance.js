@@ -5,8 +5,8 @@ import { format } from 'date-fns';
 import { ACCOUNT_ROLES, normalizeRole } from '../constants/roles';
 import { useAttendanceContext } from '../context/AttendanceContext';
 import { useAuth } from '../context/AuthContext';
-import { loadTeachers } from '../data/teachers';
-import { studentsAPI } from '../services/api';
+import { loadTeachers, normalizeTeacherItem } from '../data/teachers';
+import { studentsAPI, teachersAPI } from '../services/api';
 
 const LOCAL_STUDENTS_KEY = 'students_local_v2';
 
@@ -33,28 +33,62 @@ function mergeUniqueStudents(items) {
   return Array.from(map.values());
 }
 
+function mergeUniqueTeachers(items) {
+  const map = new Map();
+  items.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return;
+    const normalized = normalizeTeacherItem(item, index);
+    const employeeKey = normalized.employeeId ? `employee:${normalized.employeeId}` : '';
+    const emailKey = normalized.email ? `email:${String(normalized.email).toLowerCase()}` : '';
+    const idKey = normalized.id ? `id:${String(normalized.id)}` : '';
+    const fallbackKey = `fallback:${String(normalized.name || '').toLowerCase()}-${index}`;
+    map.set(employeeKey || emailKey || idKey || fallbackKey, normalized);
+  });
+  return Array.from(map.values());
+}
+
 export function useFilteredStudents() {
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
   const isAdmin = role === ACCOUNT_ROLES.ADMIN;
-  const { selectedClass, selectedShift, selectedSubject } = useAttendanceContext();
+  const { selectedClass, selectedShift, selectedSubject, attendanceScope } = useAttendanceContext();
+  const isAdminTrackingStudents = isAdmin && attendanceScope === 'students';
+  const useTeacherDataset = isAdmin && !isAdminTrackingStudents;
   const [teachers, setTeachers] = useState(() => (isAdmin ? loadTeachers() : []));
-  const [students, setStudents] = useState(() => (isAdmin ? [] : readLocalStudents()));
+  const [students, setStudents] = useState(() => (useTeacherDataset ? [] : readLocalStudents()));
 
   useEffect(() => {
     if (!isAdmin) return undefined;
-    const refreshTeachers = () => setTeachers(loadTeachers());
+
+    let isActive = true;
+
+    const refreshTeachers = async () => {
+      const localTeachers = loadTeachers();
+      try {
+        const response = await teachersAPI.getAll();
+        const apiTeachers = Array.isArray(response?.data) ? response.data : [];
+        if (isActive) {
+          setTeachers(mergeUniqueTeachers([...apiTeachers, ...localTeachers]));
+        }
+      } catch {
+        if (isActive) {
+          setTeachers(mergeUniqueTeachers(localTeachers));
+        }
+      }
+    };
+
     refreshTeachers();
     window.addEventListener('teachers-updated', refreshTeachers);
     window.addEventListener('storage', refreshTeachers);
     return () => {
+      isActive = false;
       window.removeEventListener('teachers-updated', refreshTeachers);
       window.removeEventListener('storage', refreshTeachers);
     };
   }, [isAdmin]);
 
   useEffect(() => {
-    if (isAdmin) return undefined;
+    if (useTeacherDataset) return undefined;
 
     let isActive = true;
 
@@ -79,23 +113,23 @@ export function useFilteredStudents() {
       isActive = false;
       window.removeEventListener('storage', loadStudents);
     };
-  }, [isAdmin]);
+  }, [useTeacherDataset]);
 
   const filteredStudents = useMemo(() => {
-    let scopedStudents = isAdmin ? [...teachers] : [...students];
+    let scopedStudents = useTeacherDataset ? [...teachers] : [...students];
 
     if (selectedClass) {
       scopedStudents = scopedStudents.filter(s => s.class === selectedClass);
     }
-    if (!isAdmin && selectedShift) {
+    if (!useTeacherDataset && selectedShift) {
       scopedStudents = scopedStudents.filter(s => s.shift === selectedShift);
     }
-    if (isAdmin && selectedSubject) {
+    if (useTeacherDataset && selectedSubject) {
       scopedStudents = scopedStudents.filter((teacher) => teacher.subject === selectedSubject);
     }
 
     return scopedStudents;
-  }, [isAdmin, selectedClass, selectedShift, selectedSubject, teachers, students]);
+  }, [useTeacherDataset, selectedClass, selectedShift, selectedSubject, teachers, students]);
 
   const groupedStudents = useMemo(() => {
     const groups = {};

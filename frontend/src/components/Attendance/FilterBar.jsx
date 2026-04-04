@@ -29,6 +29,7 @@ export default function FilterBar() {
     currentDate,
     selectedClass,
     selectedSubject,
+    attendanceScope,
     viewMode,
     isSubmitting,
     setDate,
@@ -37,9 +38,12 @@ export default function FilterBar() {
     submitAttendance,
   } = useAttendanceContext();
   const { filteredStudents } = useFilteredStudents();
-  const classFilterOptions = isAdmin ? teacherDepartmentOptions : classOptions;
+  const isAdminTrackingStudents = isAdmin && attendanceScope === 'students';
+  const trackingLabel = isAdminTrackingStudents ? 'Student' : (isAdmin ? 'Teacher' : 'Student');
+  const classFilterOptions = isAdminTrackingStudents ? classOptions : (isAdmin ? teacherDepartmentOptions : classOptions);
   const subjectFilterOptions = useMemo(() => {
-    if (!isAdmin) return subjectOptions;
+    if (!isAdminTrackingStudents && !isAdmin) return subjectOptions;
+    if (isAdminTrackingStudents) return subjectOptions;
     const teacherList = loadTeachers();
     const subjects = selectedClass
       ? getDepartmentSubjectOptions(selectedClass).map((item) => item.value)
@@ -48,7 +52,7 @@ export default function FilterBar() {
       { value: '', label: 'All Subjects' },
       ...subjects.map((subject) => ({ value: subject, label: subject })),
     ];
-  }, [isAdmin, selectedClass]);
+  }, [isAdmin, isAdminTrackingStudents, selectedClass]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -62,9 +66,42 @@ export default function FilterBar() {
     <div className="space-y-4">
       {/* Top row: Title + Date + View toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">
-          {isAdmin ? 'Teacher Attendance Tracking' : 'Student Attendance'}
-        </h1>
+        <div className="flex flex-col gap-3">
+          <h1 className="text-2xl font-bold text-gray-800">
+            {trackingLabel} Attendance Tracking
+          </h1>
+          {isAdmin && (
+            <div className="inline-flex w-fit rounded-lg border border-gray-200 bg-white p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilter('attendanceScope', 'staff');
+                  setFilter('selectedClass', '');
+                  setFilter('selectedSubject', '');
+                  setFilter('selectedShift', '');
+                }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  attendanceScope === 'staff' ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Staff
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilter('attendanceScope', 'students');
+                  setFilter('selectedClass', '');
+                  setFilter('selectedSubject', '');
+                }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  attendanceScope === 'students' ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Students
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           {/* Date navigation */}
@@ -138,7 +175,7 @@ export default function FilterBar() {
           loading={isSubmitting}
           onClick={() => submitAttendance(filteredStudents.map((s) => s.id), filteredStudents)}
         >
-          {isSubmitting ? 'Submitting...' : (isAdmin ? 'Track Teacher Attendance by Stream' : 'Take Attendance')}
+          {isSubmitting ? 'Submitting...' : (isAdminTrackingStudents ? 'Track Student Attendance' : (isAdmin ? 'Track Teacher Attendance by Stream' : 'Take Attendance'))}
         </Button>
       </div>
     </div>
